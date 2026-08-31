@@ -42,3 +42,6 @@ __pycache__/
 *.sqlite
 firmware/aquapulse_firmware_sim
 firmware/src/*.o
+
+# Local Documentation
+walkthru.md
