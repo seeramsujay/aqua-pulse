@@ -46,9 +46,17 @@ aqua-pulse/
 │   │   ├── oceanAcoustics.ts      # Core physics engine (Mackenzie, Snell, Thorp, Ray tracing)
 │   │   └── presets.ts             # Preconfigured ocean environment profiles
 │   └── components/
-│       ├── simulations/           # 2D Viewports (OceanCanvas, BathymetryMap, ComparisonView)
-│       ├── telemetry/             # Telemetry Graphs (SoundSpeedProfile, SpectrogramWaterfall, PhysicsPanel)
-│       └── common/                # Shared UI (Navbar, AcousticTheoryModal)
+│       ├── simulations/           # Real-time Viewports & Physics Simulators
+│       │   ├── OceanCanvas.tsx    # 2D Snell's Law ray-tracing canvas & AUV submersible
+│       │   ├── BathymetryMap.tsx  # Reconstructed seabed bathymetric point-cloud map
+│       │   └── ComparisonView.tsx # Side-by-side benchmark (Single-Freq vs RC-CSS)
+│       ├── telemetry/             # Telemetry Graphs & Signal Processors
+│       │   ├── SoundSpeedProfile.tsx # Dynamic Mackenzie c(z) velocity profile SVG graph
+│       │   ├── SpectrogramWaterfall.tsx # Live time-frequency spectrogram & matched-filter spikes
+│       │   └── PhysicsPanel.tsx   # Live numeric parameters (absorption, TL, SNR, beam width)
+│       └── common/                # Shared UI Components & Modals
+│           ├── Navbar.tsx         # Header navigation, environment presets, auto-sweep toggle
+│           └── AcousticTheoryModal.tsx # In-app reference manual for ocean acoustics & math
 ├── firmware/                      # FreeRTOS DMA-to-DAC Bare-Metal Wave Engine & TFLite Micro
 ├── hardware/                      # OPA1612 4th-order Sallen-Key Filter & BD139/BD140 Driver
 ├── backend/                       # FastAPI Telemetry Hub & TimescaleDB Mission Logger
