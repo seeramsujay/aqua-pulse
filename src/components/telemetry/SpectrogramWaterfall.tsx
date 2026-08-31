@@ -1,5 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import { EchoReturn, ChirpBand, SonarMode } from '../../types/sonar';
+import { Activity } from 'lucide-react';
+import { useAnimatedValue } from '../../hooks/useAnimatedValue';
 
 interface SpectrogramWaterfallProps {
   echoes: EchoReturn[];
@@ -15,6 +17,11 @@ export const SpectrogramWaterfall: React.FC<SpectrogramWaterfallProps> = ({
   isPinging
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const latestEcho = echoes[echoes.length - 1];
+
+  const animSnr = useAnimatedValue(latestEcho?.snrDb ?? 0, 250, 1);
+  const animGain = useAnimatedValue(latestEcho?.compressionGainDb ?? 0, 250, 1);
+  const animTof = useAnimatedValue(latestEcho?.travelTimeMs ?? 0, 250, 0);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -30,106 +37,127 @@ export const SpectrogramWaterfall: React.FC<SpectrogramWaterfallProps> = ({
       const w = canvas.width;
       const h = canvas.height;
 
-      // Dark Spectrogram Waterfall Background
-      ctx.fillStyle = '#020617';
+      // Background gradient
+      ctx.fillStyle = '#010810';
       ctx.fillRect(0, 0, w, h);
 
-      // Frequency Grid Lines (0 kHz to 80 kHz)
-      const maxFreq = 80;
-      const freqStep = 10;
-      ctx.font = '9px monospace';
+      // Subtle scanline texture
+      for (let y = 0; y < h; y += 4) {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.12)';
+        ctx.fillRect(0, y, w, 1);
+      }
+
+      // Frequency grid lines (up to 500 kHz)
+      const maxFreq = 500;
+      const freqStep = 100;
+      ctx.font = '8px JetBrains Mono, monospace';
 
       for (let f = 0; f <= maxFreq; f += freqStep) {
         const y = h - (f / maxFreq) * h;
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+
+        ctx.strokeStyle = 'rgba(0, 240, 255, 0.05)';
         ctx.lineWidth = 1;
         ctx.beginPath();
-        ctx.moveTo(0, y);
+        ctx.moveTo(28, y);
         ctx.lineTo(w, y);
         ctx.stroke();
 
-        ctx.fillStyle = 'rgba(148, 163, 184, 0.4)';
-        ctx.fillText(`${f}k`, 4, y - 2);
+        ctx.fillStyle = 'rgba(100,116,139,0.55)';
+        ctx.fillText(`${f}k`, 4, y - 1);
       }
 
-      // Time Grid Lines (vertical scrolling markers)
-      for (let x = (timeOffset % 50); x < w; x += 50) {
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
+      // Time grid lines (scrolling)
+      for (let x = (timeOffset % 50) + 28; x < w; x += 50) {
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.025)';
+        ctx.lineWidth = 1;
         ctx.beginPath();
         ctx.moveTo(x, 0);
         ctx.lineTo(x, h);
         ctx.stroke();
       }
 
-      // Draw Active Transmitted CSS Chirps / CW Tone
-      const chirpX = w - 80;
+      // Active band frequency band highlight
+      if (mode === 'rc-css') {
+        const bandY1 = h - (activeBand.fEnd / maxFreq) * h;
+        const bandY2 = h - (activeBand.fStart / maxFreq) * h;
+        ctx.fillStyle = `${activeBand.color}10`;
+        ctx.fillRect(28, bandY1, w - 28, Math.max(2, bandY2 - bandY1));
+      }
+
+      // Transmitted chirp / CW tone
+      const chirpX = w - 70;
       if (isPinging) {
         if (mode === 'rc-css') {
-          // Render Linear Frequency Chirp Sweep Line (Up-chirp)
           const y1 = h - (activeBand.fStart / maxFreq) * h;
           const y2 = h - (activeBand.fEnd / maxFreq) * h;
 
+          // Ribbon
+          const ribbonGrad = ctx.createLinearGradient(chirpX, 0, chirpX + 28, 0);
+          ribbonGrad.addColorStop(0, `${activeBand.color}33`);
+          ribbonGrad.addColorStop(1, `${activeBand.color}00`);
+          ctx.fillStyle = ribbonGrad;
+          ctx.fillRect(chirpX, y2, 28, y1 - y2);
+
+          // Chirp line
           ctx.strokeStyle = activeBand.color;
-          ctx.lineWidth = 3.5;
+          ctx.lineWidth = 3;
           ctx.shadowColor = activeBand.color;
-          ctx.shadowBlur = 12;
+          ctx.shadowBlur = 10;
           ctx.beginPath();
           ctx.moveTo(chirpX, y1);
-          ctx.lineTo(chirpX + 30, y2);
+          ctx.lineTo(chirpX + 28, y2);
           ctx.stroke();
           ctx.shadowBlur = 0;
-
-          // Bandwidth Ribbon Highlight
-          ctx.fillStyle = `${activeBand.color}22`;
-          ctx.fillRect(chirpX, y2, 30, y1 - y2);
         } else {
-          // Render CW Fixed Frequency Tone Line
-          const yCW = h - (45 / maxFreq) * h;
-          ctx.strokeStyle = '#00f0ff';
+          const yCW = h - (450 / maxFreq) * h;
+          // CW tone glow
+          ctx.strokeStyle = '#ef4444';
           ctx.lineWidth = 4;
-          ctx.shadowColor = '#00f0ff';
-          ctx.shadowBlur = 14;
+          ctx.shadowColor = '#ef4444';
+          ctx.shadowBlur = 12;
           ctx.beginPath();
           ctx.moveTo(chirpX, yCW);
-          ctx.lineTo(chirpX + 25, yCW);
+          ctx.lineTo(chirpX + 22, yCW);
           ctx.stroke();
           ctx.shadowBlur = 0;
         }
       }
 
-      // Draw Echo Returns (De-chirped Matched Filter Spikes)
+      // Echo returns — matched filter spikes
       const now = Date.now();
       echoes.forEach((echo) => {
         const ageSec = (now - echo.timestamp) / 1000;
-        if (ageSec > 12) return; // Discard older echoes
+        if (ageSec > 12) return;
 
-        const echoX = w - 80 - ageSec * 45;
-        if (echoX < 20) return;
+        const echoX = w - 70 - ageSec * 42;
+        if (echoX < 32) return;
 
         const echoY = h - (echo.freqKHz / maxFreq) * h;
+        const fadeOpacity = Math.max(0, 1 - ageSec / 10);
 
         if (echo.success) {
-          // Successful matched-filter dechirp detection peak
+          ctx.globalAlpha = fadeOpacity;
           ctx.fillStyle = echo.color;
           ctx.shadowColor = echo.color;
-          ctx.shadowBlur = 14;
-
-          // Vertical pulse compression spike
+          ctx.shadowBlur = 12;
+          // Vertical spike
           ctx.beginPath();
-          ctx.ellipse(echoX, echoY, 3, 14, 0, 0, Math.PI * 2);
+          ctx.ellipse(echoX, echoY, 2.5, 12, 0, 0, Math.PI * 2);
           ctx.fill();
-
-          // Matched filter gain annotation
-          ctx.font = '8px monospace';
-          ctx.fillStyle = '#f8fafc';
-          ctx.fillText(`+${echo.compressionGainDb.toFixed(0)}dB`, echoX - 12, echoY - 16);
           ctx.shadowBlur = 0;
+
+          // Gain label
+          ctx.font = '7px JetBrains Mono, monospace';
+          ctx.fillStyle = 'rgba(248,250,252,0.85)';
+          ctx.fillText(`+${echo.compressionGainDb.toFixed(0)}dB`, echoX - 10, echoY - 15);
+          ctx.globalAlpha = 1;
         } else {
-          // Attenuated / Blacked out signal
+          ctx.globalAlpha = fadeOpacity * 0.7;
           ctx.fillStyle = '#ef4444';
           ctx.beginPath();
-          ctx.arc(echoX, echoY, 2.5, 0, Math.PI * 2);
+          ctx.arc(echoX, echoY, 2, 0, Math.PI * 2);
           ctx.fill();
+          ctx.globalAlpha = 1;
         }
       });
 
@@ -137,53 +165,67 @@ export const SpectrogramWaterfall: React.FC<SpectrogramWaterfallProps> = ({
     };
 
     render();
-
-    return () => {
-      cancelAnimationFrame(animationId);
-    };
+    return () => cancelAnimationFrame(animationId);
   }, [echoes, activeBand, mode, isPinging]);
 
-  const latestEcho = echoes[echoes.length - 1];
-
   return (
-    <div className="bg-slate-900/90 rounded-xl p-4 border border-slate-800 shadow-xl flex flex-col h-full">
-      <div className="flex items-center justify-between border-b border-slate-800 pb-2.5 mb-3">
-        <div>
-          <h3 className="text-xs font-bold font-mono uppercase tracking-wider text-purple-400">
-            Spectrogram & De-Chirp Waterfall
-          </h3>
-          <p className="text-[10px] text-slate-400">Matched-Filter Pulse Compression Telemetry</p>
-        </div>
-        <div className="flex items-center space-x-2">
-          <span className="px-2 py-0.5 rounded bg-purple-950/80 text-purple-300 border border-purple-800/60 font-mono text-[10px]">
-            0 - 80 kHz
-          </span>
+    <div className="glass-panel panel-accent-purple flex flex-col h-full overflow-hidden">
+      <div className="px-4 pt-3.5">
+        <div className="panel-header">
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 rounded-md bg-violet-900/50 border border-violet-700/40">
+              <Activity className="w-3.5 h-3.5 text-violet-400" />
+            </div>
+            <div>
+              <div className="panel-title text-violet-400">Spectrogram Waterfall</div>
+              <p className="text-[9px] text-slate-500 mt-0.5">Time-Frequency Energy Heatmap</p>
+            </div>
+          </div>
+          <div className="hud-chip bg-violet-950/70 text-violet-400 border-violet-700/50">0 – 500 kHz</div>
         </div>
       </div>
 
-      <div className="relative flex-1 w-full bg-slate-950 rounded-lg overflow-hidden border border-slate-800">
-        <canvas ref={canvasRef} width={400} height={200} className="w-full h-full block" />
+      <div
+        className="relative flex-1 mx-4 mb-3 rounded-lg overflow-hidden border border-white/[0.06]"
+        style={{ background: '#010810' }}
+      >
+        <canvas ref={canvasRef} width={400} height={180} className="w-full h-full block" />
+        {/* Subtle scan overlay */}
+        <div
+          className="pointer-events-none absolute inset-0"
+          style={{
+            background:
+              'repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,0.04) 3px, rgba(0,0,0,0.04) 4px)'
+          }}
+        />
       </div>
 
-      {/* Real-time pulse stats */}
-      <div className="mt-3 pt-2.5 border-t border-slate-800 flex items-center justify-between text-[11px] font-mono">
-        <div className="text-slate-300">
-          <span className="text-slate-500">Peak SNR:</span>{' '}
-          <span className={latestEcho?.success ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>
-            {latestEcho ? `${latestEcho.snrDb.toFixed(1)} dB` : '-- dB'}
-          </span>
+      {/* Telemetry footer */}
+      <div className="px-4 pb-3.5 border-t border-white/[0.06] pt-2 grid grid-cols-3 gap-2">
+        <div className="telemetry-cell">
+          <div className="telemetry-label text-violet-500/70">Peak SNR</div>
+          <div
+            className={`telemetry-value text-sm ${
+              latestEcho?.success ? 'text-emerald-300' : latestEcho ? 'text-rose-400' : 'text-slate-500'
+            }`}
+          >
+            {latestEcho ? `${animSnr}` : '--'}
+          </div>
+          <div className="text-[8px] text-slate-600">dB</div>
         </div>
-        <div className="text-slate-300">
-          <span className="text-slate-500">Dechirp Gain:</span>{' '}
-          <span className="text-purple-300 font-bold">
-            {latestEcho && mode === 'rc-css' ? `+${latestEcho.compressionGainDb.toFixed(1)} dB` : '0 dB (CW)'}
-          </span>
+        <div className="telemetry-cell">
+          <div className="telemetry-label text-violet-500/70">Dechirp Gain</div>
+          <div className="telemetry-value text-violet-300 text-sm">
+            {latestEcho && mode === 'rc-css' ? `+${animGain}` : '0.0'}
+          </div>
+          <div className="text-[8px] text-slate-600">dB</div>
         </div>
-        <div className="text-slate-300">
-          <span className="text-slate-500">2-Way TOF:</span>{' '}
-          <span className="text-cyan-300 font-bold">
-            {latestEcho ? `${latestEcho.travelTimeMs.toFixed(0)} ms` : '-- ms'}
-          </span>
+        <div className="telemetry-cell">
+          <div className="telemetry-label text-slate-500">2-Way TOF</div>
+          <div className="telemetry-value text-cyan-300 text-sm">
+            {latestEcho ? `${animTof}` : '--'}
+          </div>
+          <div className="text-[8px] text-slate-600">ms</div>
         </div>
       </div>
     </div>

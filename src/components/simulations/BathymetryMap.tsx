@@ -1,6 +1,8 @@
 import React, { useMemo } from 'react';
 import { BathymetryPoint } from '../../types/sonar';
 import { getSeafloorDepth } from '../../physics/oceanAcoustics';
+import { Map } from 'lucide-react';
+import { useAnimatedValue } from '../../hooks/useAnimatedValue';
 
 interface BathymetryMapProps {
   soundings: BathymetryPoint[];
@@ -12,7 +14,6 @@ export const BathymetryMap: React.FC<BathymetryMapProps> = ({ soundings, terrain
   const WORLD_WIDTH_M = 2000;
   const MAX_DEPTH_M = 1500;
 
-  // True terrain profile points
   const trueProfile = useMemo(() => {
     const pts: { x: number; depth: number }[] = [];
     for (let x = 0; x <= WORLD_WIDTH_M; x += 25) {
@@ -22,130 +23,190 @@ export const BathymetryMap: React.FC<BathymetryMapProps> = ({ soundings, terrain
   }, [terrainType]);
 
   const svgWidth = 460;
-  const svgHeight = 220;
-  const padding = { top: 15, right: 15, bottom: 25, left: 45 };
+  const svgHeight = 200;
+  const pad = { top: 12, right: 14, bottom: 24, left: 44 };
 
-  const plotWidth = svgWidth - padding.left - padding.right;
-  const plotHeight = svgHeight - padding.top - padding.bottom;
+  const plotW = svgWidth - pad.left - pad.right;
+  const plotH = svgHeight - pad.top - pad.bottom;
 
-  const mapX = (x: number) => padding.left + (x / WORLD_WIDTH_M) * plotWidth;
-  const mapY = (depth: number) => padding.top + (depth / MAX_DEPTH_M) * plotHeight;
+  const mapX = (x: number) => pad.left + (x / WORLD_WIDTH_M) * plotW;
+  const mapY = (depth: number) => pad.top + (depth / MAX_DEPTH_M) * plotH;
 
-  // True profile path
-  const truePath = useMemo(() => {
-    return trueProfile.reduce((acc, p, idx) => {
-      const px = mapX(p.x);
-      const py = mapY(p.depth);
-      return idx === 0 ? `M ${px} ${py}` : `${acc} L ${px} ${py}`;
-    }, '');
-  }, [trueProfile]);
+  const truePath = useMemo(
+    () =>
+      trueProfile.reduce((acc, p, i) => {
+        const px = mapX(p.x),
+          py = mapY(p.depth);
+        return i === 0 ? `M ${px} ${py}` : `${acc} L ${px} ${py}`;
+      }, ''),
+    [trueProfile]
+  );
 
-  // Sounding metrics calculation
+  // Build filled reconstruction polygon from soundings
+  const soundingPath = useMemo(() => {
+    if (soundings.length < 2) return '';
+    const sorted = [...soundings].sort((a, b) => a.x - b.x);
+    const topLeft = `M ${mapX(sorted[0].x)} ${pad.top}`;
+    const topRight = `L ${mapX(sorted[sorted.length - 1].x)} ${pad.top}`;
+    const line = sorted.reduce((acc, s, i) => {
+      const px = mapX(s.x),
+        py = mapY(s.measuredDepth || s.trueDepth);
+      return i === 0 ? `${acc} L ${px} ${py}` : `${acc} L ${px} ${py}`;
+    }, topLeft + topRight.replace('M', 'L'));
+    return line + ' Z';
+  }, [soundings]);
+
   const stats = useMemo(() => {
     if (soundings.length === 0) return { coveragePct: 0, avgConfidence: 0, rmsErrorM: 0 };
-
-    // Group by 50m bins to calculate spatial coverage
     const bins = new Set(soundings.map((s) => Math.floor(s.x / 50)));
     const totalBins = WORLD_WIDTH_M / 50;
     const coveragePct = Math.min(100, Math.round((bins.size / totalBins) * 100));
-
-    const avgConfidence = Math.round(
-      soundings.reduce((sum, s) => sum + s.confidence, 0) / soundings.length
-    );
-
+    const avgConfidence = Math.round(soundings.reduce((sum, s) => sum + s.confidence, 0) / soundings.length);
     const errorSum = soundings.reduce((sum, s) => {
       const err = (s.measuredDepth || s.trueDepth) - s.trueDepth;
       return sum + err * err;
     }, 0);
-    const rmsErrorM = Math.sqrt(errorSum / soundings.length).toFixed(1);
-
+    const rmsErrorM = parseFloat(Math.sqrt(errorSum / soundings.length).toFixed(1));
     return { coveragePct, avgConfidence, rmsErrorM };
   }, [soundings]);
 
+  const animCoverage = useAnimatedValue(stats.coveragePct, 250, 0);
+  const animConfidence = useAnimatedValue(stats.avgConfidence, 250, 0);
+  const animRms = useAnimatedValue(stats.rmsErrorM, 250, 1);
+
   return (
-    <div className="bg-slate-900/90 rounded-xl p-4 border border-slate-800 shadow-xl flex flex-col h-full">
-      <div className="flex items-center justify-between border-b border-slate-800 pb-2.5 mb-3">
-        <div>
-          <h3 className="text-xs font-bold font-mono uppercase tracking-wider text-emerald-400">
-            Reconstructed Bathymetry Map
-          </h3>
-          <p className="text-[10px] text-slate-400">Acoustic Hydrographic Sounding Reconstruction</p>
-        </div>
-        <div className="flex items-center space-x-2">
-          <button
-            onClick={onClear}
-            className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition"
-          >
-            RESET MAP
-          </button>
+    <div className="glass-panel panel-accent-emerald flex flex-col h-full overflow-hidden">
+      {/* Header */}
+      <div className="px-4 pt-3.5">
+        <div className="panel-header">
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 rounded-md bg-emerald-900/50 border border-emerald-700/40">
+              <Map className="w-3.5 h-3.5 text-emerald-400" />
+            </div>
+            <div>
+              <div className="panel-title text-emerald-400">Reconstructed Bathymetry</div>
+              <p className="text-[9px] text-slate-500 mt-0.5">Acoustic Hydrographic Sounding Map</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {soundings.length > 0 && (
+              <span className="hud-chip bg-emerald-950/70 text-emerald-400 border-emerald-700/50">
+                {soundings.length} soundings
+              </span>
+            )}
+            <button
+              onClick={onClear}
+              className="hud-chip bg-slate-900/70 text-slate-400 border-slate-700/50 hover:text-slate-200 hover:border-slate-600 transition-all cursor-pointer"
+            >
+              RESET
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Map SVG */}
-      <div className="relative flex-1 w-full bg-slate-950 rounded-lg overflow-hidden border border-slate-800 flex items-center justify-center">
+      {/* SVG Map */}
+      <div
+        className="relative flex-1 mx-4 rounded-lg overflow-hidden border border-white/[0.06] flex items-center justify-center"
+        style={{ background: 'rgba(1, 10, 20, 0.8)' }}
+      >
         <svg width={svgWidth} height={svgHeight} className="w-full h-full">
-          {/* Depth Grid Lines */}
+          <defs>
+            <linearGradient id="emeraldAreaGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="rgba(52,211,153,0.18)" />
+              <stop offset="100%" stopColor="rgba(52,211,153,0)" />
+            </linearGradient>
+            <filter id="greenGlow">
+              <feGaussianBlur stdDeviation="1.5" result="blur" />
+              <feComposite in="SourceGraphic" in2="blur" operator="over" />
+            </filter>
+          </defs>
+
+          {/* Depth grid */}
           {[300, 600, 900, 1200, 1500].map((d) => (
-            <g key={`bathy-grid-${d}`}>
+            <g key={`bg-${d}`}>
               <line
-                x1={padding.left}
+                x1={pad.left}
                 y1={mapY(d)}
-                x2={padding.left + plotWidth}
+                x2={pad.left + plotW}
                 y2={mapY(d)}
-                stroke="rgba(255, 255, 255, 0.05)"
+                stroke="rgba(255,255,255,0.04)"
               />
               <text
-                x={padding.left - 6}
+                x={pad.left - 5}
                 y={mapY(d) + 3}
                 textAnchor="end"
-                className="text-[9px] font-mono fill-slate-500"
+                style={{ fontSize: 7, fill: 'rgba(100,116,139,0.7)', fontFamily: 'JetBrains Mono,monospace' }}
               >
                 {d}m
               </text>
             </g>
           ))}
 
-          {/* True Seafloor Reference Profile (dashed gray) */}
-          <path d={truePath} fill="none" stroke="rgba(148, 163, 184, 0.3)" strokeWidth="1.5" strokeDasharray="4 4" />
+          {/* Reconstructed sounding area fill */}
+          {soundingPath && <path d={soundingPath} fill="url(#emeraldAreaGrad)" />}
 
-          {/* Sounded Points Overlay */}
+          {/* True seafloor reference */}
+          <path d={truePath} fill="none" stroke="rgba(148,163,184,0.2)" strokeWidth={1.5} strokeDasharray="4 4" />
+
+          {/* Individual sounding dots */}
           {soundings.map((s, idx) => {
             const px = mapX(s.x);
             const py = mapY(s.measuredDepth || s.trueDepth);
             const color =
-              s.frequencyKHz && s.frequencyKHz < 15
+              s.frequencyKHz && s.frequencyKHz < 160
                 ? '#f59e0b'
-                : s.frequencyKHz && s.frequencyKHz < 35
+                : s.frequencyKHz && s.frequencyKHz < 300
                 ? '#10b981'
                 : '#a855f7';
-
             return (
               <circle
-                key={`sounding-${idx}`}
+                key={`sd-${idx}`}
                 cx={px}
                 cy={py}
-                r={3}
+                r={2.5}
                 fill={color}
-                opacity={0.85}
+                style={{ filter: `drop-shadow(0 0 3px ${color})` }}
+                opacity={0.9}
               />
             );
           })}
+
+          {/* Reconstructed line over soundings */}
+          {soundings.length > 1 &&
+            (() => {
+              const sorted = [...soundings].sort((a, b) => a.x - b.x);
+              const path = sorted.reduce((acc, s, i) => {
+                const px = mapX(s.x),
+                  py = mapY(s.measuredDepth || s.trueDepth);
+                return i === 0 ? `M ${px} ${py}` : `${acc} L ${px} ${py}`;
+              }, '');
+              return (
+                <path d={path} fill="none" stroke="rgba(52,211,153,0.6)" strokeWidth={1.5} filter="url(#greenGlow)" />
+              );
+            })()}
         </svg>
       </div>
 
-      {/* Metric Telemetry Cards */}
-      <div className="mt-3 pt-2.5 border-t border-slate-800 grid grid-cols-3 gap-2 text-[11px] font-mono">
-        <div className="bg-slate-950/60 p-2 rounded border border-slate-800/80">
-          <div className="text-slate-500 text-[10px]">SEABED COVERAGE</div>
-          <div className="text-emerald-400 font-bold text-sm mt-0.5">{stats.coveragePct}%</div>
+      {/* Metrics footer */}
+      <div className="px-4 pb-3.5 pt-2.5 border-t border-white/[0.06] grid grid-cols-3 gap-2">
+        <div className="telemetry-cell">
+          <div className="telemetry-label text-emerald-500/70">Seabed Coverage</div>
+          <div className="telemetry-value text-emerald-300">{animCoverage}%</div>
+          <div className="progress-track mt-1.5">
+            <div className="progress-fill bg-emerald-400" style={{ width: `${stats.coveragePct}%` }} />
+          </div>
         </div>
-        <div className="bg-slate-950/60 p-2 rounded border border-slate-800/80">
-          <div className="text-slate-500 text-[10px]">AVG CONFIDENCE</div>
-          <div className="text-cyan-400 font-bold text-sm mt-0.5">{stats.avgConfidence}%</div>
+        <div className="telemetry-cell">
+          <div className="telemetry-label text-cyan-500/70">Avg Confidence</div>
+          <div className="telemetry-value text-cyan-300">{animConfidence}%</div>
+          <div className="progress-track mt-1.5">
+            <div className="progress-fill bg-cyan-400" style={{ width: `${stats.avgConfidence}%` }} />
+          </div>
         </div>
-        <div className="bg-slate-950/60 p-2 rounded border border-slate-800/80">
-          <div className="text-slate-500 text-[10px]">RMS ERROR</div>
-          <div className="text-purple-300 font-bold text-sm mt-0.5">±{stats.rmsErrorM}m</div>
+        <div className="telemetry-cell">
+          <div className="telemetry-label text-violet-500/70">RMS Error</div>
+          <div className="telemetry-value text-violet-300">±{animRms}</div>
+          <div className="text-[8px] text-slate-600 mt-0.5">meters</div>
         </div>
       </div>
     </div>
