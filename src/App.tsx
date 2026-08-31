@@ -10,7 +10,7 @@ import { SoundSpeedProfile } from './components/telemetry/SoundSpeedProfile';
 import { SpectrogramWaterfall } from './components/telemetry/SpectrogramWaterfall';
 import { PhysicsPanel } from './components/telemetry/PhysicsPanel';
 import { AcousticTheoryModal } from './components/common/AcousticTheoryModal';
-import { Compass } from 'lucide-react';
+import { Compass, Navigation, Signal } from 'lucide-react';
 
 export function App() {
   const [scenarios] = useState<PresetScenario[]>(SCENARIO_PRESETS);
@@ -21,6 +21,7 @@ export function App() {
   const [autoRoll, setAutoRoll] = useState<boolean>(true);
   const [isAutoPinging, setIsAutoPinging] = useState<boolean>(false);
   const [isTheoryOpen, setIsTheoryOpen] = useState<boolean>(false);
+  const [pingFlash, setPingFlash] = useState(false);
 
   const [submersible, setSubmersible] = useState<Submersible>({
     x: 450,
@@ -37,24 +38,18 @@ export function App() {
 
   const activeBand = bands[activeBandIndex] || bands[0];
 
-  // Scenario switch handler
   const handleSelectScenario = (scenario: PresetScenario) => {
     setActiveScenario(scenario);
-    setSubmersible((prev) => ({
-      ...prev,
-      depth: scenario.auvDepth,
-      x: 450
-    }));
+    setSubmersible((prev) => ({ ...prev, depth: scenario.auvDepth, x: 450 }));
     setSoundings([]);
     setEchoes([]);
   };
 
-  // Echo and sounding handlers
   const handleEchoDetected = useCallback(
     (echo: EchoReturn) => {
       setEchoes((prev) => [...prev.slice(-40), echo]);
-
-      // If auto-roll is enabled and in RC-CSS mode, roll to next band
+      setPingFlash(true);
+      setTimeout(() => setPingFlash(false), 300);
       if (autoRoll && mode === 'rc-css') {
         setActiveBandIndex((prev) => (prev + 1) % bands.length);
       }
@@ -64,13 +59,11 @@ export function App() {
 
   const handleSoundingPoint = useCallback((point: BathymetryPoint) => {
     setSoundings((prev) => {
-      // Deduplicate close points
       const filtered = prev.filter((p) => Math.abs(p.x - point.x) > 15);
       return [...filtered, point];
     });
   }, []);
 
-  // Keyboard shortcut listener (Space = ping, Arrows = steer AUV)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.code === 'Space') {
@@ -86,14 +79,13 @@ export function App() {
         setSubmersible((prev) => ({ ...prev, depth: Math.min(1300, prev.depth + 25) }));
       }
     };
-
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#030712] text-slate-100 flex flex-col font-sans">
-      {/* Top Navigation Bar */}
+    <div className="min-h-screen text-slate-100 flex flex-col font-sans" style={{ background: '#030712' }}>
+      {/* Navigation */}
       <Navbar
         mode={mode}
         setMode={setMode}
@@ -105,37 +97,66 @@ export function App() {
         onOpenTheory={() => setIsTheoryOpen(true)}
       />
 
-      {/* Main Operational Container */}
+      {/* Auto-sweep status ribbon */}
+      {isAutoPinging && (
+        <div className="bg-emerald-950/60 border-b border-emerald-800/50 px-4 py-1 flex items-center justify-center gap-2">
+          <span className="status-dot text-emerald-400" style={{ backgroundColor: '#34d399' }} />
+          <span className="font-mono text-[10px] text-emerald-300 tracking-widest uppercase">
+            Auto-Sweep Active — RC-CSS Rolling Channel Transmission
+          </span>
+        </div>
+      )}
+
+      {/* Main layout */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 flex flex-col gap-4">
-        {/* Scenario Mission Header */}
-        <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-3.5 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center space-x-3">
-            <div className="p-2 rounded-lg bg-cyan-950/60 border border-cyan-800/80 text-cyan-400">
-              <Compass className="w-5 h-5" />
+
+        {/* Mission Header Card */}
+        <div className="glass-panel px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-hydro-900/50 border border-hydro-700/40 text-hydro-300 flex-shrink-0">
+              <Compass className="w-4 h-4" />
             </div>
             <div>
-              <div className="flex items-center space-x-2">
-                <h2 className="text-sm font-bold text-slate-100">{activeScenario.name}</h2>
-                <span className="text-xs text-slate-400 font-mono">[{activeScenario.subtitle}]</span>
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <h2 className="text-sm font-bold text-slate-100 font-mono">{activeScenario.name}</h2>
+                <span className="hud-chip bg-slate-900/80 text-slate-400 border-slate-700/60">{activeScenario.subtitle}</span>
               </div>
-              <p className="text-xs text-slate-400 mt-0.5 max-w-3xl">{activeScenario.description}</p>
+              <p className="text-[11px] text-slate-500 mt-0.5 max-w-2xl leading-relaxed">{activeScenario.description}</p>
             </div>
           </div>
 
-          <div className="flex items-center space-x-2 text-xs font-mono">
-            <span className="text-slate-400">AUV Position:</span>
-            <span className="px-2 py-0.5 rounded bg-slate-950 text-cyan-300 border border-slate-800">
-              X: {submersible.x.toFixed(0)}m | Z: {submersible.depth.toFixed(0)}m
-            </span>
+          {/* AUV Telemetry strip */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-white/[0.07] font-mono text-[10px]"
+              style={{ background: 'rgba(0,0,0,0.45)' }}>
+              <Navigation className="w-3 h-3 text-hydro-400" />
+              <span className="text-slate-500">X:</span>
+              <span className={`text-hydro-300 font-bold transition-all ${pingFlash ? 'text-white' : ''}`}>
+                {submersible.x.toFixed(0)}m
+              </span>
+              <span className="text-white/20 mx-1">|</span>
+              <span className="text-slate-500">Z:</span>
+              <span className={`text-amber-300 font-bold transition-all ${pingFlash ? 'text-white' : ''}`}>
+                {submersible.depth.toFixed(0)}m
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-white/[0.07] font-mono text-[10px]"
+              style={{ background: 'rgba(0,0,0,0.45)' }}>
+              <Signal className="w-3 h-3 text-emerald-400" />
+              <span className="text-slate-500">Mode:</span>
+              <span className={`font-bold ml-1 ${mode === 'rc-css' ? 'text-hydro-300' : mode === 'traditional-cw' ? 'text-rose-400' : 'text-violet-400'}`}>
+                {mode === 'rc-css' ? 'RC-CSS' : mode === 'traditional-cw' ? 'CW TONE' : 'COMPARE'}
+              </span>
+            </div>
           </div>
         </div>
 
-        {/* View Switcher: Side-by-Side Comparison OR Real-Time Viewport Grid */}
+        {/* Main Panel Area */}
         {mode === 'side-by-side' ? (
           <ComparisonView onSelectMode={(selected) => setMode(selected)} />
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 flex-1">
-            {/* Left Column: 2D Ocean Simulation Canvas Viewport (8 Cols) */}
+            {/* Left: Ocean Canvas + Bathymetry */}
             <div className="lg:col-span-8 flex flex-col gap-4 min-h-[560px]">
               <div className="flex-1 w-full min-h-[460px]">
                 <OceanCanvas
@@ -150,8 +171,6 @@ export function App() {
                   isAutoPinging={isAutoPinging}
                 />
               </div>
-
-              {/* Bottom Reconstructed Bathymetry Map */}
               <div className="h-[260px]">
                 <BathymetryMap
                   soundings={soundings}
@@ -161,14 +180,11 @@ export function App() {
               </div>
             </div>
 
-            {/* Right Column: Telemetry, SSP & Spectrogram Waterfall (4 Cols) */}
+            {/* Right: Telemetry column */}
             <div className="lg:col-span-4 flex flex-col gap-4">
-              {/* Sound Speed Profile (SSP) Chart */}
               <div className="h-[300px]">
                 <SoundSpeedProfile layers={activeScenario.layers} auvDepth={submersible.depth} />
               </div>
-
-              {/* Spectrogram & De-Chirp Waterfall */}
               <div className="h-[250px]">
                 <SpectrogramWaterfall
                   echoes={echoes}
@@ -177,8 +193,6 @@ export function App() {
                   isPinging={submersible.pingActive}
                 />
               </div>
-
-              {/* Acoustic Physics & Stepped Rolling Controller */}
               <div className="flex-1 min-h-[220px]">
                 <PhysicsPanel
                   activeBand={activeBand}
@@ -199,22 +213,27 @@ export function App() {
         )}
       </main>
 
-      {/* Footer Status Bar */}
-      <footer className="bg-slate-950 border-t border-slate-900 px-4 py-2.5 text-[11px] text-slate-500 font-mono flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center space-x-3">
-          <span>AquaPulse Cyber-Physical Suite v2.0.0</span>
-          <span>•</span>
-          <span className="text-cyan-400/80">Stratified Snell Ray Tracing & Telemetry Engine</span>
+      {/* Footer */}
+      <footer className="border-t border-white/[0.05] px-4 py-2.5 font-mono text-[10px] text-slate-600 flex flex-wrap items-center justify-between gap-2"
+        style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(12px)' }}>
+        <div className="flex items-center gap-3">
+          <span className="text-slate-500">AquaPulse Cyber-Physical Suite</span>
+          <span className="text-white/15">·</span>
+          <span className="text-hydro-500/70">RC-CSS Acoustic Bathymetry Engine v2.0.0</span>
         </div>
-        <div className="flex items-center space-x-4 text-slate-400">
-          <span>
-            Controls: <kbd className="bg-slate-900 text-slate-300 px-1 py-0.5 rounded text-[10px]">Space</kbd> Ping |{' '}
-            <kbd className="bg-slate-900 text-slate-300 px-1 py-0.5 rounded text-[10px]">Arrow Keys</kbd> Steer AUV | Drag AUV Icon
+        <div className="flex items-center gap-3 text-slate-600">
+          <span className="flex items-center gap-1">
+            <kbd className="px-1.5 py-0.5 rounded bg-slate-900 border border-slate-800 text-slate-400">Space</kbd>
+            <span>Ping</span>
           </span>
+          <span className="flex items-center gap-1">
+            <kbd className="px-1.5 py-0.5 rounded bg-slate-900 border border-slate-800 text-slate-400">↑↓←→</kbd>
+            <span>Steer AUV</span>
+          </span>
+          <span className="text-slate-700">· Drag AUV on canvas</span>
         </div>
       </footer>
 
-      {/* Acoustic Theory & Navy Documentation Modal */}
       <AcousticTheoryModal isOpen={isTheoryOpen} onClose={() => setIsTheoryOpen(false)} />
     </div>
   );
