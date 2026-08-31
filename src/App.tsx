@@ -1,16 +1,16 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Submersible, EchoReturn, BathymetryPoint, SonarMode, PresetScenario, ChirpBand } from './types/sonar';
-import { STANDARD_CHIRP_BANDS, DEFAULT_OCEAN_LAYERS } from './physics/oceanAcoustics';
+import { STANDARD_CHIRP_BANDS } from './physics/oceanAcoustics';
 import { SCENARIO_PRESETS } from './physics/presets';
-import { Navbar } from './components/Navbar';
-import { OceanCanvas } from './components/OceanCanvas';
-import { SoundSpeedProfile } from './components/SoundSpeedProfile';
-import { SpectrogramWaterfall } from './components/SpectrogramWaterfall';
-import { BathymetryMap } from './components/BathymetryMap';
-import { PhysicsPanel } from './components/PhysicsPanel';
-import { ComparisonView } from './components/ComparisonView';
-import { AcousticTheoryModal } from './components/AcousticTheoryModal';
-import { Waves, Sparkles, Compass, HelpCircle } from 'lucide-react';
+import { Navbar } from './components/common/Navbar';
+import { OceanCanvas } from './components/simulations/OceanCanvas';
+import { ComparisonView } from './components/simulations/ComparisonView';
+import { BathymetryMap } from './components/simulations/BathymetryMap';
+import { SoundSpeedProfile } from './components/telemetry/SoundSpeedProfile';
+import { SpectrogramWaterfall } from './components/telemetry/SpectrogramWaterfall';
+import { PhysicsPanel } from './components/telemetry/PhysicsPanel';
+import { AcousticTheoryModal } from './components/common/AcousticTheoryModal';
+import { Compass } from 'lucide-react';
 
 export function App() {
   const [scenarios] = useState<PresetScenario[]>(SCENARIO_PRESETS);
@@ -135,7 +135,7 @@ export function App() {
           <ComparisonView onSelectMode={(selected) => setMode(selected)} />
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 flex-1">
-            {/* Left Column: 2D Ocean Simulation Canvas Viewport (7 Cols) */}
+            {/* Left Column: 2D Ocean Simulation Canvas Viewport (8 Cols) */}
             <div className="lg:col-span-8 flex flex-col gap-4 min-h-[560px]">
               <div className="flex-1 w-full min-h-[460px]">
                 <OceanCanvas
@@ -202,9 +202,9 @@ export function App() {
       {/* Footer Status Bar */}
       <footer className="bg-slate-950 border-t border-slate-900 px-4 py-2.5 text-[11px] text-slate-500 font-mono flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center space-x-3">
-          <span>AquaPulse Acoustic Suite v1.0.0</span>
+          <span>AquaPulse Cyber-Physical Suite v2.0.0</span>
           <span>•</span>
-          <span className="text-cyan-400/80">Stratified Snell Ray Tracing Engine</span>
+          <span className="text-cyan-400/80">Stratified Snell Ray Tracing & Telemetry Engine</span>
         </div>
         <div className="flex items-center space-x-4 text-slate-400">
           <span>

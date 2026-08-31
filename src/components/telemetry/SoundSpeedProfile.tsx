@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
-import { OceanLayer } from '../types/sonar';
-import { calculateSoundSpeed, getOceanPropertiesAtDepth } from '../physics/oceanAcoustics';
+import { OceanLayer } from '../../types/sonar';
+import { getOceanPropertiesAtDepth } from '../../physics/oceanAcoustics';
 
 interface SoundSpeedProfileProps {
   layers: OceanLayer[];

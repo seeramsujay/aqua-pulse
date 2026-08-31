@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { EchoReturn, ChirpBand, SonarMode } from '../types/sonar';
+import { EchoReturn, ChirpBand, SonarMode } from '../../types/sonar';
 
 interface SpectrogramWaterfallProps {
   echoes: EchoReturn[];

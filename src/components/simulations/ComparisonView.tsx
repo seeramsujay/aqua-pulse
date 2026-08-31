@@ -1,5 +1,5 @@
 import React from 'react';
-import { CheckCircle2, XCircle, Zap, ShieldAlert, Waves, Radio } from 'lucide-react';
+import { CheckCircle2, XCircle, Zap, ShieldAlert, Radio } from 'lucide-react';
 
 interface ComparisonViewProps {
   onSelectMode: (mode: 'rc-css' | 'traditional-cw') => void;

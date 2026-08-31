@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
-import { BathymetryPoint } from '../types/sonar';
-import { getSeafloorDepth } from '../physics/oceanAcoustics';
+import { BathymetryPoint } from '../../types/sonar';
+import { getSeafloorDepth } from '../../physics/oceanAcoustics';
 
 interface BathymetryMapProps {
   soundings: BathymetryPoint[];

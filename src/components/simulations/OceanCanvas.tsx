@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { Submersible, OceanLayer, AcousticRay, ChirpBand, EchoReturn, BathymetryPoint, SonarMode } from '../types/sonar';
-import { getOceanPropertiesAtDepth, getSeafloorDepth, traceAcousticRay, STANDARD_CHIRP_BANDS } from '../physics/oceanAcoustics';
+import { Submersible, OceanLayer, AcousticRay, ChirpBand, EchoReturn, BathymetryPoint, SonarMode } from '../../types/sonar';
+import { getOceanPropertiesAtDepth, getSeafloorDepth, traceAcousticRay } from '../../physics/oceanAcoustics';
 
 interface OceanCanvasProps {
   submersible: Submersible;
@@ -28,10 +28,8 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [rays, setRays] = useState<AcousticRay[]>([]);
   const [isDraggingAuv, setIsDraggingAuv] = useState(false);
-  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
-  const [pingWaveRadius, setPingWaveRadius] = useState<number[]>([]);
+  const [, setPingWaveRadius] = useState<number[]>([]);
   const animationFrameRef = useRef<number | null>(null);
-  const lastPingTimeRef = useRef<number>(0);
 
   // Ocean coordinate system bounds
   const WORLD_WIDTH_M = 2000;
@@ -87,7 +85,7 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
     setPingWaveRadius((prev) => [...prev, 5]);
 
     // Update status
-    setSubmersible((prev) => ({ ...prev, status: 'transmitting', pingActive: true }));
+    setSubmersible((prev: Submersible) => ({ ...prev, status: 'transmitting', pingActive: true }));
 
     // Register echo returns with realistic delay
     newRays.forEach((r) => {
@@ -111,11 +109,11 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
     });
 
     setTimeout(() => {
-      setSubmersible((prev) => ({ ...prev, status: 'propagating' }));
+      setSubmersible((prev: Submersible) => ({ ...prev, status: 'propagating' }));
     }, 300);
 
     setTimeout(() => {
-      setSubmersible((prev) => ({ ...prev, status: 'idle', pingActive: false }));
+      setSubmersible((prev: Submersible) => ({ ...prev, status: 'idle', pingActive: false }));
     }, 1400);
   }, [submersible, mode, activeBand, layers, terrainType, onEchoDetected, onSoundingPoint, setSubmersible]);
 
@@ -153,7 +151,6 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
       const scaleX = (x: number) => (x / WORLD_WIDTH_M) * w;
       const scaleY = (z: number) => (z / WORLD_DEPTH_M) * h;
       const unscaleX = (px: number) => (px / w) * WORLD_WIDTH_M;
-      const unscaleY = (py: number) => (py / h) * WORLD_DEPTH_M;
 
       // Clear Canvas
       ctx.fillStyle = '#030712';
@@ -276,7 +273,7 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
         ctx.lineWidth = mode === 'rc-css' ? 2 : 1.5;
         ctx.globalAlpha = 0.65;
 
-        ray.segments.forEach((seg, idx) => {
+        ray.segments.forEach((seg: any, idx: number) => {
           const sx1 = scaleX(seg.x1);
           const sy1 = scaleY(seg.y1);
           const sx2 = scaleX(seg.x2);
@@ -472,12 +469,11 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
     const rect = canvas.getBoundingClientRect();
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
-    setMousePos({ x: mouseX, y: mouseY });
 
     if (isDraggingAuv) {
       const newWorldX = Math.max(100, Math.min(WORLD_WIDTH_M - 100, (mouseX / canvas.width) * WORLD_WIDTH_M));
       const newDepth = Math.max(30, Math.min(WORLD_DEPTH_M - 200, (mouseY / canvas.height) * WORLD_DEPTH_M));
-      setSubmersible((prev) => ({ ...prev, x: newWorldX, depth: newDepth }));
+      setSubmersible((prev: Submersible) => ({ ...prev, x: newWorldX, depth: newDepth }));
     }
   };
 

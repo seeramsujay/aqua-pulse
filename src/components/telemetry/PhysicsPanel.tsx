@@ -1,6 +1,6 @@
 import React from 'react';
-import { ChirpBand, OceanLayer, SonarMode, Submersible } from '../types/sonar';
-import { calculateThorpAttenuation, calculateCssProcessingGain, getOceanPropertiesAtDepth } from '../physics/oceanAcoustics';
+import { ChirpBand, OceanLayer, SonarMode, Submersible } from '../../types/sonar';
+import { calculateThorpAttenuation, calculateCssProcessingGain, getOceanPropertiesAtDepth } from '../../physics/oceanAcoustics';
 
 interface PhysicsPanelProps {
   activeBand: ChirpBand;

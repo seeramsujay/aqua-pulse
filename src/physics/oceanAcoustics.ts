@@ -118,7 +118,6 @@ export function traceAcousticRay(
   let totalDistance = 0;
   let totalTimeMs = 0;
   let isReflected = false;
-  let isSeafloorHit = false;
   let isLostInShadow = false;
 
   const color = band ? band.color : '#00ffff';
@@ -135,11 +134,12 @@ export function traceAcousticRay(
   // Maximum detection threshold (SNR > 0 dB after processing)
   const maxAllowableTL = (sourceLevelDb - ambientNoiseDb + processingGainDb) / 2;
 
-  while (totalDistance < maxDistanceM) {
+  const maxSteps = Math.floor(maxDistanceM / ds);
+  for (let step = 0; step < maxSteps; step++) {
     const prevX = currX;
     const prevZ = currZ;
 
-    const { soundSpeed, temp } = getOceanPropertiesAtDepth(layers, currZ);
+    const { soundSpeed } = getOceanPropertiesAtDepth(layers, currZ);
     // Sound speed gradient dc/dz
     const deltaZ = 2;
     const speedBelow = getOceanPropertiesAtDepth(layers, currZ + deltaZ).soundSpeed;
@@ -169,7 +169,6 @@ export function traceAcousticRay(
     const seafloorZ = getSeafloorDepth(currX, terrainType);
     if (currZ >= seafloorZ) {
       currZ = seafloorZ;
-      isSeafloorHit = true;
 
       // Transmission loss computation
       const tlOneWay = calculateTransmissionLoss(totalDistance, freqKHz);

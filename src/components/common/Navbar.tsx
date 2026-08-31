@@ -1,6 +1,6 @@
 import React from 'react';
-import { SonarMode, PresetScenario } from '../types/sonar';
-import { Radio, Waves, Layers, BookOpen, Play, Pause, Activity, Sparkles } from 'lucide-react';
+import { SonarMode, PresetScenario } from '../../types/sonar';
+import { Radio, Layers, BookOpen, Play, Pause, Activity, Sparkles } from 'lucide-react';
 
 interface NavbarProps {
   mode: SonarMode;

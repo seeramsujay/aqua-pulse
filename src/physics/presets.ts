@@ -1,4 +1,4 @@
-import { PresetScenario, OceanLayer } from '../types/sonar';
+import { PresetScenario } from '../types/sonar';
 import { DEFAULT_OCEAN_LAYERS } from './oceanAcoustics';
 
 export const SCENARIO_PRESETS: PresetScenario[] = [
