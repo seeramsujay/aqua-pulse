@@ -19,7 +19,7 @@ export interface ChirpBand {
   color: string;
   secondaryColor: string;
   description: string;
-  targetRegime: 'Deep Penetration & Sub-bottom' | 'Mid-Column & Thermocline' | 'High-Res Bathymetry';
+  targetRegime: 'Deep Penetration & Turbid Estuaries' | 'Mid-Water & Thermocline' | 'High-Res Bathymetry';
 }
 
 export interface RaySegment {

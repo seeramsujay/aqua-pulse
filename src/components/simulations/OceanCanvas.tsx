@@ -63,8 +63,8 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
         newRays.push(ray);
       }
     } else {
-      // For Traditional CW Sonar, fire single fixed high frequency (e.g. 45 kHz)
-      const fixedFreq = 45;
+      // For Traditional CW Sonar, fire single fixed high frequency tone (450 kHz)
+      const fixedFreq = 450;
       for (let i = 0; i < numRays; i++) {
         const angle = startAngle + i * angleStep;
         const ray = traceAcousticRay(
@@ -547,15 +547,15 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
         <div className="flex items-center space-x-4 font-mono">
           <span className="flex items-center space-x-1.5">
             <span className="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block" />
-            <span>Band 1: 3-12 kHz (Deep)</span>
+            <span>Ch 0: 100-140 kHz (Deep/Turbid)</span>
           </span>
           <span className="flex items-center space-x-1.5">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block" />
-            <span>Band 2: 15-32 kHz (Thermo)</span>
+            <span>Ch 1: 200-250 kHz (Thermo)</span>
           </span>
           <span className="flex items-center space-x-1.5">
             <span className="w-2.5 h-2.5 rounded-full bg-purple-500 inline-block" />
-            <span>Band 3: 35-70 kHz (High-Res)</span>
+            <span>Ch 2: 400-480 kHz (High-Res)</span>
           </span>
         </div>
         <div className="text-slate-400 font-sans italic">

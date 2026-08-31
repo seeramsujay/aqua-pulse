@@ -35,7 +35,7 @@ export const ComparisonView: React.FC<ComparisonViewProps> = ({ onSelectMode }) 
               </div>
               <div>
                 <h3 className="text-sm font-bold text-slate-200">Single-Frequency CW Pulse</h3>
-                <p className="text-xs text-slate-500 font-mono">Fixed 45 - 100 kHz Narrowband Tone</p>
+                <p className="text-xs text-slate-500 font-mono">Fixed 450 kHz High-Frequency Tone</p>
               </div>
             </div>
 
@@ -43,25 +43,25 @@ export const ComparisonView: React.FC<ComparisonViewProps> = ({ onSelectMode }) 
               <li className="flex items-start space-x-2">
                 <XCircle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
                 <span>
-                  <strong>Extreme Thorp Absorption:</strong> High frequencies suffer 25-45 dB/km attenuation, completely dissipating beyond 600m depth.
+                  <strong>Severe Viscosity & Thorp Absorption:</strong> High-frequency 450 kHz pings suffer extreme attenuation ($\alpha \propto f^2$), creating complete echo blackout in deep or turbid channels.
                 </span>
               </li>
               <li className="flex items-start space-x-2">
                 <XCircle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
                 <span>
-                  <strong>Shadow Zone Blackout:</strong> Snell ray bending refracts single-frequency pings away from the seabed into blind zones.
+                  <strong>Shadow Zone Blackout:</strong> Snell ray bending refracts static pings away from seabed targets into acoustic blind zones.
                 </span>
               </li>
               <li className="flex items-start space-x-2">
                 <XCircle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
                 <span>
-                  <strong>Zero Pulse Compression Gain:</strong> Requires massive acoustic transmitter power (SL &gt; 230 dB) to overcome ocean noise.
+                  <strong>Monostatic Blind Zone:</strong> Long pulse durations (Tp = 10 ms) physically blind the receiver up to 7.5 meters.
                 </span>
               </li>
               <li className="flex items-start space-x-2">
                 <XCircle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
                 <span>
-                  <strong>Range vs. Resolution Trade-off:</strong> Lowering frequency blurs vertical resolution to meters; raising frequency blinds deep sounding.
+                  <strong>Inflexible Energy Drain:</strong> Pumping static wattage into acoustic shadow zones rapidly drains AUV battery reserves.
                 </span>
               </li>
             </ul>
@@ -92,8 +92,8 @@ export const ComparisonView: React.FC<ComparisonViewProps> = ({ onSelectMode }) 
                 <Radio className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-slate-100">Rolling-Channel CSS (RC-CSS)</h3>
-                <p className="text-xs text-cyan-400 font-mono">Stepped 3-12 / 15-32 / 35-70 kHz Chirps</p>
+                <h3 className="text-sm font-bold text-slate-100">Stepped Multi-Tone CSS (RC-CSS)</h3>
+                <p className="text-xs text-cyan-400 font-mono">Stepped 100-140 / 200-250 / 400-480 kHz Micro-Chirps</p>
               </div>
             </div>
 
@@ -101,25 +101,25 @@ export const ComparisonView: React.FC<ComparisonViewProps> = ({ onSelectMode }) 
               <li className="flex items-start space-x-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
                 <span>
-                  <strong>Stepped Multi-Band Penetration:</strong> Low-band (3-12 kHz) pierces deep thermoclines with &lt;1.5 dB/km loss, guaranteeing bottom return.
+                  <strong>Stepped Sub-Band Agility:</strong> Channel 0 (100-140 kHz) pierces turbid layers with minimal absorption; Channel 2 (400-480 kHz) yields centimeter resolution in clear water.
                 </span>
               </li>
               <li className="flex items-start space-x-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
                 <span>
-                  <strong>+18.4 dB Matched-Filter Compression Gain:</strong> De-chirping cross-correlation detects echoes below ocean ambient noise floor (SNR &lt; -10 dB).
+                  <strong>Micro-Chirp Blind Zone Elimination:</strong> Short pulse durations (Tp &le; 1.5 ms) restrict physical receiver blind zones to R_blind &lt; 1.1 m.
                 </span>
               </li>
               <li className="flex items-start space-x-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
                 <span>
-                  <strong>Adaptive Rolling Window:</strong> Dynamically rolls channels to compensate for thermocline boundary shifts and Doppler drift.
+                  <strong>Cognitive Edge TinyML Adaptation:</strong> On-device INT8 MLP maps sensor inputs to optimal frequency/bandwidth, cutting energy consumption up to 38%.
                 </span>
               </li>
               <li className="flex items-start space-x-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
                 <span>
-                  <strong>Dual Bathymetry & Hydrography:</strong> Resolves both sub-meter seafloor topography and stratified sound velocity layers simultaneously.
+                  <strong>Zero-CPU Hardware Synthesis & Active OPA1612 Filtering:</strong> Bare-metal DMA streams windowed waveforms into a 4th-order Sallen-Key low-pass filter (fc = 450 kHz).
                 </span>
               </li>
             </ul>

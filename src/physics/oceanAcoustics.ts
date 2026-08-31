@@ -285,35 +285,35 @@ export function traceAcousticRay(
 export const STANDARD_CHIRP_BANDS: ChirpBand[] = [
   {
     id: 'band-subbottom',
-    name: 'Band 1: Deep Penetrator (Sub-Bottom)',
-    fStart: 3,
-    fEnd: 12,
-    durationMs: 60,
+    name: 'Channel 0: Deep Penetrator (Turbid / Strata)',
+    fStart: 100,
+    fEnd: 140,
+    durationMs: 1.5,
     color: '#f59e0b', // Amber
     secondaryColor: '#ef4444',
-    description: 'Low-frequency CSS chirp. Minimal Thorp attenuation; penetrates strong thermoclines and sediment.',
-    targetRegime: 'Deep Penetration & Sub-bottom'
+    description: 'Low-frequency micro-chirp (100-140 kHz, B=40 kHz, Tp=1.5 ms). Maximum penetration for turbid estuaries and deep strata.',
+    targetRegime: 'Deep Penetration & Turbid Estuaries'
   },
   {
     id: 'band-midwater',
-    name: 'Band 2: Thermocline Channel Profiler',
-    fStart: 15,
-    fEnd: 32,
-    durationMs: 40,
-    color: '#10b981', // Emerald / Cyan
+    name: 'Channel 1: Halocline / Thermocline Profiler',
+    fStart: 200,
+    fEnd: 250,
+    durationMs: 1.0,
+    color: '#10b981', // Emerald
     secondaryColor: '#06b6d4',
-    description: 'Mid-band chirp. High backscatter detection at layer interfaces; maps sound velocity anomalies.',
-    targetRegime: 'Mid-Column & Thermocline'
+    description: 'Mid-band micro-chirp (200-250 kHz, B=50 kHz, Tp=1.0 ms). Mid-water profiling across halocline & thermocline velocity boundaries.',
+    targetRegime: 'Mid-Water & Thermocline'
   },
   {
     id: 'band-highres',
-    name: 'Band 3: Precision Bathymetric Sounder',
-    fStart: 35,
-    fEnd: 70,
-    durationMs: 25,
-    color: '#a855f7', // Purple / Violet
+    name: 'Channel 2: Centimeter Bathymetric Sounder',
+    fStart: 400,
+    fEnd: 480,
+    durationMs: 0.4,
+    color: '#a855f7', // Purple
     secondaryColor: '#ec4899',
-    description: 'High-frequency wideband sweep. Centimeter-level vertical resolution for bathymetry in clear ducts.',
+    description: 'High-frequency micro-chirp (400-480 kHz, B=80 kHz, Tp=0.4 ms). High-definition centimeter bathymetry in clear water.',
     targetRegime: 'High-Res Bathymetry'
   }
 ];

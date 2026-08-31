@@ -86,22 +86,22 @@ export const AcousticTheoryModal: React.FC<AcousticTheoryModalProps> = ({ isOpen
             </p>
           </div>
 
-          {/* Section 4: Rolling-Channel CSS Breakthrough */}
+          {/* Section 4: Stepped Multi-Tone CSS & Micro-Chirps */}
           <div className="bg-slate-950/70 p-4 rounded-xl border border-slate-800/80 space-y-2">
             <div className="flex items-center space-x-2 text-emerald-400 font-bold font-mono text-sm">
               <Radio className="w-4 h-4" />
-              <span>4. The RC-CSS Solution: Rolling Chirp Spread Spectrum</span>
+              <span>4. Stepped Multi-Tone CSS & Micro-Chirp Innovation</span>
             </div>
             <p>
-              Inspired by LoRa RF Spread Spectrum, <strong>AquaPulse Rolling-Channel CSS</strong> applies stepped Linear Frequency Modulated (LFM) chirps across staggered bands:
+              AQUAPULSE implements bare-metal software-defined wave synthesis emitting micro-chirps ($T_p \le 1.5$ ms) across agile sub-bands tailored to AUV transducer apertures:
             </p>
             <ul className="list-disc list-inside space-y-1 text-slate-300 pl-2">
-              <li><strong>Band 1 (3 - 12 kHz):</strong> Low-frequency upchirp with minimal absorption to pierce deep shadow zones and trenches.</li>
-              <li><strong>Band 2 (15 - 32 kHz):</strong> Mid-band linear chirp to detect thermocline backscatter interfaces.</li>
-              <li><strong>Band 3 (35 - 70 kHz):</strong> Wideband sweep for sub-meter high-resolution bathymetric imaging.</li>
+              <li><strong>Channel 0 (100 - 140 kHz, Tp = 1.5 ms):</strong> Deep penetration micro-chirp for turbid estuaries and deep strata.</li>
+              <li><strong>Channel 1 (200 - 250 kHz, Tp = 1.0 ms):</strong> Mid-band profiler across halocline and thermocline velocity boundaries.</li>
+              <li><strong>Channel 2 (400 - 480 kHz, Tp = 0.4 ms):</strong> Centimeter-grade bathymetric sounder in clear water.</li>
             </ul>
             <p className="mt-2">
-              By applying a <strong>Matched Filter cross-correlation</strong> at the receiver, the system achieves a pulse compression processing gain of <strong>G_p = 10 log₁₀(B × T) ≈ +18 dB</strong>, detecting weak returns even with SNR &lt; -10 dB!
+              <strong>Monostatic Blind Zone Elimination:</strong> Micro-chirps keep the physical receiver blind distance below R_blind = (c × Tp) / 2 &lt; 1.1 meters. Raw DAC samples are conditioned by an active 4th-order Sallen-Key Butterworth filter (TI OPA1612, fc = 450 kHz), delivering pure analog acoustic waves.
             </p>
           </div>
         </div>

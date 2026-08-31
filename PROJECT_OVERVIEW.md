@@ -15,14 +15,14 @@ flowchart TD
         A["Temperature & Salinity Stratification"] --> B["Sound Speed Gradient c(z) (Mackenzie Eq)"]
         B --> C["Acoustic Ray Bending (Snell's Law)"]
         C --> D["Acoustic Shadow Zones & Blind Spots"]
-        E["High-Frequency Sound (45-100 kHz)"] --> F["High Seawater Absorption (Thorp's Eq)"]
+        E["High-Frequency Sound (450 kHz)"] --> F["High Seawater Absorption (Thorp's Eq)"]
         F --> G["Deep Water Echo Blackout"]
     end
 
     subgraph Solution["The RC-CSS Solution"]
-        H["Band 1: 3–12 kHz"] -->|"Deep Penetration (<1.5 dB/km loss)"| K["Guaranteed Seabed Sounding"]
-        I["Band 2: 15–32 kHz"] -->|"Mid-Band Profiling"| L["Thermocline & Sub-bottom Layering"]
-        J["Band 3: 35–70 kHz"] -->|"Shallow Resolution"| M["Centimeter-grade Precision"]
+        H["Channel 0: 100–140 kHz"] -->|"Deep Penetration (Tp=1.5 ms)"| K["Guaranteed Seabed Sounding in Turbid Water"]
+        I["Channel 1: 200–250 kHz"] -->|"Mid-Band Profiling (Tp=1.0 ms)"| L["Halocline & Thermocline Layering"]
+        J["Channel 2: 400–480 kHz"] -->|"Shallow Resolution (Tp=0.4 ms)"| M["Centimeter-grade Precision (R_blind < 1.1m)"]
         N["Pulse Compression & Matched Filtering"] --> O["+18.4 dB Processing Gain (Works at negative SNR)"]
     end
 
@@ -46,14 +46,13 @@ aqua-pulse/
 │   │   ├── oceanAcoustics.ts      # Core physics engine (Mackenzie, Snell, Thorp, Ray tracing)
 │   │   └── presets.ts             # Preconfigured ocean environment profiles
 │   └── components/
-│       ├── Navbar.tsx             # Header navigation, environment presets, auto-sweep toggle
-│       ├── OceanCanvas.tsx        # 2D Real-time canvas interactive ocean & ray-tracer
-│       ├── SoundSpeedProfile.tsx  # Dynamic Mackenzie c(z) sound velocity graph
-│       ├── SpectrogramWaterfall.tsx # Live time-frequency spectrogram & matched filter spikes
-│       ├── BathymetryMap.tsx      # Reconstructed seabed bathymetric point-cloud map
-│       ├── PhysicsPanel.tsx       # Live numeric parameters (absorption, TL, SNR, beam width)
-│       ├── ComparisonView.tsx     # Side-by-side benchmark (Single-Frequency vs RC-CSS)
-│       └── AcousticTheoryModal.tsx# In-app reference manual for ocean acoustics & math
+│       ├── simulations/           # 2D Viewports (OceanCanvas, BathymetryMap, ComparisonView)
+│       ├── telemetry/             # Telemetry Graphs (SoundSpeedProfile, SpectrogramWaterfall, PhysicsPanel)
+│       └── common/                # Shared UI (Navbar, AcousticTheoryModal)
+├── firmware/                      # FreeRTOS DMA-to-DAC Bare-Metal Wave Engine & TFLite Micro
+├── hardware/                      # OPA1612 4th-order Sallen-Key Filter & BD139/BD140 Driver
+├── backend/                       # FastAPI Telemetry Hub & TimescaleDB Mission Logger
+└── docs/                          # Architecture specs & physics math manuals
 ```
 
 ---
