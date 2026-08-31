@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { OceanLayer } from '../../types/sonar';
 import { getOceanPropertiesAtDepth } from '../../physics/oceanAcoustics';
 import { Waves } from 'lucide-react';
+import { useAnimatedValue } from '../../hooks/useAnimatedValue';
 
 interface SoundSpeedProfileProps {
   layers: OceanLayer[];
@@ -32,21 +33,29 @@ export const SoundSpeedProfile: React.FC<SoundSpeedProfileProps> = ({ layers, au
   const plotW = svgWidth - pad.left - pad.right;
   const plotH = svgHeight - pad.top - pad.bottom;
 
-  const mapDepthToY  = (d: number) => pad.top + (d / MAX_DEPTH) * plotH;
-  const mapSpeedToX  = (s: number) => pad.left + ((s - MIN_SPEED) / (MAX_SPEED - MIN_SPEED)) * plotW;
-  const mapTempToX   = (t: number) => pad.left + ((t - MIN_TEMP) / (MAX_TEMP - MIN_TEMP)) * plotW;
+  const mapDepthToY = (d: number) => pad.top + (d / MAX_DEPTH) * plotH;
+  const mapSpeedToX = (s: number) => pad.left + ((s - MIN_SPEED) / (MAX_SPEED - MIN_SPEED)) * plotW;
+  const mapTempToX = (t: number) => pad.left + ((t - MIN_TEMP) / (MAX_TEMP - MIN_TEMP)) * plotW;
 
-  const speedPath = useMemo(() =>
-    profilePoints.reduce((acc, p, i) => {
-      const x = mapSpeedToX(p.soundSpeed), y = mapDepthToY(p.depth);
-      return i === 0 ? `M ${x} ${y}` : `${acc} L ${x} ${y}`;
-    }, ''), [profilePoints]);
+  const speedPath = useMemo(
+    () =>
+      profilePoints.reduce((acc, p, i) => {
+        const x = mapSpeedToX(p.soundSpeed),
+          y = mapDepthToY(p.depth);
+        return i === 0 ? `M ${x} ${y}` : `${acc} L ${x} ${y}`;
+      }, ''),
+    [profilePoints]
+  );
 
-  const tempPath = useMemo(() =>
-    profilePoints.reduce((acc, p, i) => {
-      const x = mapTempToX(p.temp), y = mapDepthToY(p.depth);
-      return i === 0 ? `M ${x} ${y}` : `${acc} L ${x} ${y}`;
-    }, ''), [profilePoints]);
+  const tempPath = useMemo(
+    () =>
+      profilePoints.reduce((acc, p, i) => {
+        const x = mapTempToX(p.temp),
+          y = mapDepthToY(p.depth);
+        return i === 0 ? `M ${x} ${y}` : `${acc} L ${x} ${y}`;
+      }, ''),
+    [profilePoints]
+  );
 
   // Area fill path for speed curve
   const speedAreaPath = useMemo(() => {
@@ -54,7 +63,8 @@ export const SoundSpeedProfile: React.FC<SoundSpeedProfileProps> = ({ layers, au
     const first = profilePoints[0];
     const last = profilePoints[profilePoints.length - 1];
     const linePart = profilePoints.reduce((acc, p, i) => {
-      const x = mapSpeedToX(p.soundSpeed), y = mapDepthToY(p.depth);
+      const x = mapSpeedToX(p.soundSpeed),
+        y = mapDepthToY(p.depth);
       return i === 0 ? `M ${x} ${y}` : `${acc} L ${x} ${y}`;
     }, '');
     return `${linePart} L ${pad.left} ${mapDepthToY(last.depth)} L ${pad.left} ${mapDepthToY(first.depth)} Z`;
@@ -62,6 +72,10 @@ export const SoundSpeedProfile: React.FC<SoundSpeedProfileProps> = ({ layers, au
 
   const auvY = mapDepthToY(auvDepth);
   const currentAuvProps = getOceanPropertiesAtDepth(layers, auvDepth);
+
+  const animSpeed = useAnimatedValue(currentAuvProps.soundSpeed, 250, 0);
+  const animTemp = useAnimatedValue(currentAuvProps.temp, 250, 1);
+  const animSalinity = useAnimatedValue(currentAuvProps.salinity, 250, 1);
 
   return (
     <div className="glass-panel panel-accent-cyan flex flex-col h-full overflow-hidden">
@@ -101,8 +115,14 @@ export const SoundSpeedProfile: React.FC<SoundSpeedProfileProps> = ({ layers, au
             return (
               <g key={layer.id}>
                 <rect x={pad.left} y={y1} width={plotW} height={y2 - y1} fill={layer.color} opacity={0.4} />
-                <line x1={pad.left} y1={y2} x2={pad.left + plotW} y2={y2}
-                  stroke="rgba(255,255,255,0.08)" strokeDasharray="3 3" />
+                <line
+                  x1={pad.left}
+                  y1={y2}
+                  x2={pad.left + plotW}
+                  y2={y2}
+                  stroke="rgba(255,255,255,0.08)"
+                  strokeDasharray="3 3"
+                />
               </g>
             );
           })}
@@ -110,10 +130,19 @@ export const SoundSpeedProfile: React.FC<SoundSpeedProfileProps> = ({ layers, au
           {/* Depth grid lines */}
           {[0, 300, 600, 900, 1200, 1500].map((d) => (
             <g key={`dg-${d}`}>
-              <line x1={pad.left} y1={mapDepthToY(d)} x2={pad.left + plotW} y2={mapDepthToY(d)}
-                stroke="rgba(255,255,255,0.05)" />
-              <text x={pad.left - 6} y={mapDepthToY(d) + 3} textAnchor="end"
-                style={{ fontSize: 8, fill: 'rgba(100,116,139,0.8)', fontFamily: 'JetBrains Mono,monospace' }}>
+              <line
+                x1={pad.left}
+                y1={mapDepthToY(d)}
+                x2={pad.left + plotW}
+                y2={mapDepthToY(d)}
+                stroke="rgba(255,255,255,0.05)"
+              />
+              <text
+                x={pad.left - 6}
+                y={mapDepthToY(d) + 3}
+                textAnchor="end"
+                style={{ fontSize: 8, fill: 'rgba(100,116,139,0.8)', fontFamily: 'JetBrains Mono,monospace' }}
+              >
                 {d}m
               </text>
             </g>
@@ -122,10 +151,19 @@ export const SoundSpeedProfile: React.FC<SoundSpeedProfileProps> = ({ layers, au
           {/* Speed X axis labels */}
           {[1470, 1500, 1530].map((s) => (
             <g key={`sg-${s}`}>
-              <line x1={mapSpeedToX(s)} y1={pad.top} x2={mapSpeedToX(s)} y2={pad.top + plotH}
-                stroke="rgba(255,255,255,0.04)" />
-              <text x={mapSpeedToX(s)} y={pad.top + plotH + 14} textAnchor="middle"
-                style={{ fontSize: 8, fill: 'rgba(0,240,255,0.5)', fontFamily: 'JetBrains Mono,monospace' }}>
+              <line
+                x1={mapSpeedToX(s)}
+                y1={pad.top}
+                x2={mapSpeedToX(s)}
+                y2={pad.top + plotH}
+                stroke="rgba(255,255,255,0.04)"
+              />
+              <text
+                x={mapSpeedToX(s)}
+                y={pad.top + plotH + 14}
+                textAnchor="middle"
+                style={{ fontSize: 8, fill: 'rgba(0,240,255,0.5)', fontFamily: 'JetBrains Mono,monospace' }}
+              >
                 {s}
               </text>
             </g>
@@ -142,13 +180,25 @@ export const SoundSpeedProfile: React.FC<SoundSpeedProfileProps> = ({ layers, au
           <path d={speedPath} fill="none" stroke="#00f0ff" strokeWidth={2} />
 
           {/* AUV depth indicator */}
-          <line x1={pad.left} y1={auvY} x2={pad.left + plotW} y2={auvY}
-            stroke="rgba(234,179,8,0.7)" strokeWidth={1} strokeDasharray="4 3" />
+          <line
+            x1={pad.left}
+            y1={auvY}
+            x2={pad.left + plotW}
+            y2={auvY}
+            stroke="rgba(234,179,8,0.7)"
+            strokeWidth={1}
+            strokeDasharray="4 3"
+          />
           {/* AUV animated dot */}
-          <circle cx={mapSpeedToX(currentAuvProps.soundSpeed)} cy={auvY} r={6}
-            fill="rgba(234,179,8,0.15)" stroke="rgba(234,179,8,0.5)" strokeWidth={1} />
-          <circle cx={mapSpeedToX(currentAuvProps.soundSpeed)} cy={auvY} r={3.5}
-            fill="#eab308" />
+          <circle
+            cx={mapSpeedToX(currentAuvProps.soundSpeed)}
+            cy={auvY}
+            r={6}
+            fill="rgba(234,179,8,0.15)"
+            stroke="rgba(234,179,8,0.5)"
+            strokeWidth={1}
+          />
+          <circle cx={mapSpeedToX(currentAuvProps.soundSpeed)} cy={auvY} r={3.5} fill="#eab308" />
         </svg>
       </div>
 
@@ -157,17 +207,17 @@ export const SoundSpeedProfile: React.FC<SoundSpeedProfileProps> = ({ layers, au
         <div className="grid grid-cols-3 gap-2">
           <div className="telemetry-cell">
             <div className="telemetry-label text-cyan-500/70">c(z)</div>
-            <div className="telemetry-value text-cyan-300 text-base">{currentAuvProps.soundSpeed.toFixed(0)}</div>
+            <div className="telemetry-value text-cyan-300 text-base">{animSpeed}</div>
             <div className="text-[8px] text-slate-600 mt-0.5">m/s</div>
           </div>
           <div className="telemetry-cell">
             <div className="telemetry-label text-orange-500/70">Temp</div>
-            <div className="telemetry-value text-orange-300 text-base">{currentAuvProps.temp.toFixed(1)}</div>
+            <div className="telemetry-value text-orange-300 text-base">{animTemp}</div>
             <div className="text-[8px] text-slate-600 mt-0.5">°C</div>
           </div>
           <div className="telemetry-cell">
             <div className="telemetry-label text-slate-500">Salinity</div>
-            <div className="telemetry-value text-slate-300 text-base">{currentAuvProps.salinity.toFixed(1)}</div>
+            <div className="telemetry-value text-slate-300 text-base">{animSalinity}</div>
             <div className="text-[8px] text-slate-600 mt-0.5">PSU</div>
           </div>
         </div>

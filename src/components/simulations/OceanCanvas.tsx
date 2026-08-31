@@ -14,6 +14,16 @@ interface OceanCanvasProps {
   isAutoPinging: boolean;
 }
 
+interface OceanParticle {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  size: number;
+  baseAlpha: number;
+  type: 'caustic' | 'thermocline' | 'bioluminescent' | 'sediment';
+}
+
 export const OceanCanvas: React.FC<OceanCanvasProps> = ({
   submersible,
   setSubmersible,
@@ -30,10 +40,35 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
   const [isDraggingAuv, setIsDraggingAuv] = useState(false);
   const [, setPingWaveRadius] = useState<number[]>([]);
   const animationFrameRef = useRef<number | null>(null);
+  const particlesRef = useRef<OceanParticle[]>([]);
 
   // Ocean coordinate system bounds
   const WORLD_WIDTH_M = 2000;
   const WORLD_DEPTH_M = 1500;
+
+  // Initialize environmental ocean particles once
+  useEffect(() => {
+    const pts: OceanParticle[] = [];
+    const count = 65;
+    for (let i = 0; i < count; i++) {
+      const y = Math.random() * WORLD_DEPTH_M;
+      let type: OceanParticle['type'] = 'caustic';
+      if (y > 250 && y < 750) type = 'thermocline';
+      else if (y >= 750 && y < 1200) type = 'bioluminescent';
+      else if (y >= 1200) type = 'sediment';
+
+      pts.push({
+        x: Math.random() * WORLD_WIDTH_M,
+        y,
+        vx: (Math.random() - 0.5) * 0.4 + (type === 'caustic' ? 0.3 : 0.05),
+        vy: (Math.random() - 0.5) * 0.2 + (type === 'sediment' ? -0.1 : 0),
+        size: type === 'bioluminescent' ? 1.8 + Math.random() * 1.5 : 1 + Math.random() * 1.5,
+        baseAlpha: 0.15 + Math.random() * 0.35,
+        type
+      });
+    }
+    particlesRef.current = pts;
+  }, []);
 
   // Trigger Acoustic Ping
   const triggerPing = useCallback(() => {
@@ -153,7 +188,7 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
       const unscaleX = (px: number) => (px / w) * WORLD_WIDTH_M;
 
       // Clear Canvas
-      ctx.fillStyle = '#030712';
+      ctx.fillStyle = '#020612';
       ctx.fillRect(0, 0, w, h);
 
       // 1. Draw Stratified Ocean Water Column with Depth Gradients
@@ -164,25 +199,25 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
 
         const grad = ctx.createLinearGradient(0, yStart, 0, yEnd);
         if (layer.id.includes('mixed')) {
-          grad.addColorStop(0, 'rgba(14, 116, 144, 0.45)');
-          grad.addColorStop(1, 'rgba(12, 74, 110, 0.55)');
+          grad.addColorStop(0, 'rgba(10, 80, 110, 0.45)');
+          grad.addColorStop(1, 'rgba(8, 55, 85, 0.55)');
         } else if (layer.id.includes('thermocline') || layer.id.includes('thermo')) {
-          grad.addColorStop(0, 'rgba(12, 74, 110, 0.55)');
-          grad.addColorStop(1, 'rgba(15, 23, 42, 0.75)');
+          grad.addColorStop(0, 'rgba(8, 55, 85, 0.55)');
+          grad.addColorStop(1, 'rgba(12, 20, 36, 0.75)');
         } else if (layer.id.includes('sofar')) {
-          grad.addColorStop(0, 'rgba(15, 23, 42, 0.75)');
-          grad.addColorStop(0.5, 'rgba(30, 27, 75, 0.85)'); // SOFAR channel axis violet tint
-          grad.addColorStop(1, 'rgba(15, 23, 42, 0.85)');
+          grad.addColorStop(0, 'rgba(12, 20, 36, 0.75)');
+          grad.addColorStop(0.5, 'rgba(25, 22, 60, 0.85)'); // SOFAR channel axis subtle indigo tint
+          grad.addColorStop(1, 'rgba(12, 20, 36, 0.85)');
         } else {
-          grad.addColorStop(0, 'rgba(15, 23, 42, 0.85)');
-          grad.addColorStop(1, 'rgba(2, 6, 23, 0.96)');
+          grad.addColorStop(0, 'rgba(12, 20, 36, 0.85)');
+          grad.addColorStop(1, 'rgba(2, 5, 18, 0.96)');
         }
 
         ctx.fillStyle = grad;
         ctx.fillRect(0, yStart, w, layerHeight);
 
         // Draw Layer Boundary Lines & Labels
-        ctx.strokeStyle = 'rgba(56, 189, 248, 0.2)';
+        ctx.strokeStyle = 'rgba(56, 189, 248, 0.18)';
         ctx.setLineDash([4, 4]);
         ctx.lineWidth = 1;
         ctx.beginPath();
@@ -192,25 +227,25 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
         ctx.setLineDash([]);
 
         // Layer Name Annotation
-        ctx.font = '11px monospace';
-        ctx.fillStyle = 'rgba(148, 163, 184, 0.6)';
-        ctx.fillText(`${layer.name} (${layer.depthStart}m - ${layer.depthEnd}m)`, 16, yStart + 20);
+        ctx.font = '10px JetBrains Mono, monospace';
+        ctx.fillStyle = 'rgba(148, 163, 184, 0.65)';
+        ctx.fillText(`${layer.name.toUpperCase()} [${layer.depthStart}m - ${layer.depthEnd}m]`, 16, yStart + 18);
 
         // Sound Speed at Layer Boundary
         const { soundSpeed } = getOceanPropertiesAtDepth(layers, layer.depthStart);
-        ctx.fillStyle = 'rgba(56, 189, 248, 0.45)';
-        ctx.fillText(`c ≈ ${soundSpeed.toFixed(1)} m/s`, w - 140, yStart + 20);
+        ctx.fillStyle = 'rgba(56, 189, 248, 0.5)';
+        ctx.fillText(`c(z) ≈ ${soundSpeed.toFixed(1)} m/s`, w - 145, yStart + 18);
       });
 
       // 2. Animated Thermocline Internal Waves
       layers.forEach((layer, idx) => {
         if (idx > 0 && idx < layers.length) {
           const yBound = scaleY(layer.depthStart);
-          ctx.strokeStyle = 'rgba(56, 189, 248, 0.25)';
-          ctx.lineWidth = 1.5;
+          ctx.strokeStyle = 'rgba(56, 189, 248, 0.2)';
+          ctx.lineWidth = 1.2;
           ctx.beginPath();
           for (let x = 0; x <= w; x += 10) {
-            const waveY = yBound + Math.sin(x * 0.015 + time * 1.5 + idx) * 4;
+            const waveY = yBound + Math.sin(x * 0.015 + time * 1.5 + idx) * 3.5;
             if (x === 0) ctx.moveTo(x, waveY);
             else ctx.lineTo(x, waveY);
           }
@@ -218,11 +253,47 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
         }
       });
 
-      // 3. Draw Depth Grid Lines (every 200m)
-      ctx.font = '10px monospace';
+      // 3. Ambient Ocean Particles (Living water column)
+      if (particlesRef.current.length > 0) {
+        particlesRef.current.forEach((p) => {
+          p.x += p.vx;
+          p.y += p.vy;
+
+          if (p.x < 0) p.x = WORLD_WIDTH_M;
+          if (p.x > WORLD_WIDTH_M) p.x = 0;
+          if (p.y < 0) p.y = WORLD_DEPTH_M;
+          if (p.y > WORLD_DEPTH_M) p.y = 0;
+
+          const px = scaleX(p.x);
+          const py = scaleY(p.y);
+
+          ctx.beginPath();
+          if (p.type === 'caustic') {
+            ctx.fillStyle = `rgba(180, 240, 255, ${p.baseAlpha * (0.6 + 0.4 * Math.sin(time * 2 + p.x))})`;
+            ctx.arc(px, py, p.size, 0, Math.PI * 2);
+          } else if (p.type === 'thermocline') {
+            ctx.fillStyle = `rgba(56, 189, 248, ${p.baseAlpha * 0.6})`;
+            ctx.arc(px, py, p.size * 0.8, 0, Math.PI * 2);
+          } else if (p.type === 'bioluminescent') {
+            const glow = 0.5 + 0.5 * Math.sin(time * 3 + p.y);
+            ctx.fillStyle = `rgba(52, 211, 153, ${p.baseAlpha * glow})`;
+            ctx.shadowColor = '#34d399';
+            ctx.shadowBlur = 4;
+            ctx.arc(px, py, p.size, 0, Math.PI * 2);
+            ctx.shadowBlur = 0;
+          } else {
+            ctx.fillStyle = `rgba(148, 163, 184, ${p.baseAlpha * 0.4})`;
+            ctx.arc(px, py, p.size * 0.7, 0, Math.PI * 2);
+          }
+          ctx.fill();
+        });
+      }
+
+      // 4. Draw Depth Grid Lines (every 200m)
+      ctx.font = '10px JetBrains Mono, monospace';
       for (let d = 200; d < WORLD_DEPTH_M; d += 200) {
         const y = scaleY(d);
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
         ctx.lineWidth = 1;
         ctx.beginPath();
         ctx.moveTo(0, y);
@@ -233,7 +304,7 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
         ctx.fillText(`${d}m`, 6, y - 4);
       }
 
-      // 4. Render Realistic Seafloor Terrain
+      // 5. Render Realistic Seafloor Terrain
       const seafloorPath = new Path2D();
       seafloorPath.moveTo(0, h);
       const stepPx = 8;
@@ -249,21 +320,21 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
 
       // Seafloor fill gradient
       const seafloorGrad = ctx.createLinearGradient(0, scaleY(600), 0, h);
-      seafloorGrad.addColorStop(0, '#1e293b');
-      seafloorGrad.addColorStop(0.3, '#0f172a');
+      seafloorGrad.addColorStop(0, '#111827');
+      seafloorGrad.addColorStop(0.3, '#0b1120');
       seafloorGrad.addColorStop(1, '#020617');
       ctx.fillStyle = seafloorGrad;
       ctx.fill(seafloorPath);
 
       // Seafloor luminous border
       ctx.strokeStyle = '#38bdf8';
-      ctx.lineWidth = 2.5;
+      ctx.lineWidth = 2;
       ctx.shadowColor = '#0284c7';
-      ctx.shadowBlur = 10;
+      ctx.shadowBlur = 8;
       ctx.stroke(seafloorPath);
       ctx.shadowBlur = 0;
 
-      // 5. Draw Acoustic Rays & Refraction Paths
+      // 6. Draw Acoustic Rays & Refraction Paths
       rays.forEach((ray) => {
         if (ray.segments.length === 0) return;
 
@@ -297,9 +368,9 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
 
           ctx.fillStyle = ray.color;
           ctx.shadowColor = ray.color;
-          ctx.shadowBlur = 12;
+          ctx.shadowBlur = 10;
           ctx.beginPath();
-          ctx.arc(px, py, 4.5, 0, Math.PI * 2);
+          ctx.arc(px, py, 4, 0, Math.PI * 2);
           ctx.fill();
           ctx.shadowBlur = 0;
         }
@@ -312,15 +383,15 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
 
           ctx.fillStyle = lastSeg.isLostInShadow ? '#ef4444' : ray.color;
           ctx.shadowColor = lastSeg.isLostInShadow ? '#ef4444' : ray.color;
-          ctx.shadowBlur = 15;
+          ctx.shadowBlur = 14;
           ctx.beginPath();
-          ctx.arc(hitX, hitY, lastSeg.isLostInShadow ? 3 : 5, 0, Math.PI * 2);
+          ctx.arc(hitX, hitY, lastSeg.isLostInShadow ? 3 : 4.5, 0, Math.PI * 2);
           ctx.fill();
           ctx.shadowBlur = 0;
         }
       });
 
-      // 6. Draw Expanding Acoustic Ping Wavefronts
+      // 7. Draw Expanding Acoustic Ping Wavefronts
       setPingWaveRadius((prevRadii) => {
         return prevRadii
           .map((r) => r + 4)
@@ -329,7 +400,7 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
             const auvY = scaleY(submersible.depth);
 
             ctx.strokeStyle = activeBand.color;
-            ctx.lineWidth = Math.max(0.5, 3 - r / 60);
+            ctx.lineWidth = Math.max(0.5, 2.5 - r / 70);
             ctx.globalAlpha = Math.max(0, 1 - r / 220);
             ctx.beginPath();
             ctx.arc(auvX, auvY, r, 0, Math.PI * 2);
@@ -340,7 +411,7 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
           });
       });
 
-      // 7. Draw AUV / Unmanned Submersible Vehicle
+      // 8. Draw AUV / Unmanned Submersible Vehicle
       const auvCanvasX = scaleX(submersible.x);
       const auvCanvasY = scaleY(submersible.depth);
 
@@ -351,22 +422,22 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
       const beamSpreadRad = (submersible.beamSpreadDeg * Math.PI) / 180;
       const pingAngleRad = (submersible.pingAngleDeg * Math.PI) / 180;
       ctx.fillStyle = activeBand.color;
-      ctx.globalAlpha = 0.08;
+      ctx.globalAlpha = 0.07;
       ctx.beginPath();
       ctx.moveTo(0, 0);
-      ctx.arc(0, 0, 160, pingAngleRad - beamSpreadRad / 2, pingAngleRad + beamSpreadRad / 2);
+      ctx.arc(0, 0, 170, pingAngleRad - beamSpreadRad / 2, pingAngleRad + beamSpreadRad / 2);
       ctx.closePath();
       ctx.fill();
       ctx.globalAlpha = 1.0;
 
-      // Submersible Body (Submarine hull)
+      // Submersible Ambient Glow Halo
       ctx.shadowColor = '#00f0ff';
-      ctx.shadowBlur = isDraggingAuv ? 18 : 8;
+      ctx.shadowBlur = isDraggingAuv ? 20 : 10;
 
       // Main Hull Ellipse
       ctx.fillStyle = '#0f172a';
       ctx.strokeStyle = '#38bdf8';
-      ctx.lineWidth = 2.5;
+      ctx.lineWidth = 2.2;
       ctx.beginPath();
       ctx.ellipse(0, 0, 24, 13, 0, 0, Math.PI * 2);
       ctx.fill();
@@ -375,7 +446,7 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
       // Top Conning Tower / Periscope
       ctx.fillStyle = '#1e293b';
       ctx.strokeStyle = '#0284c7';
-      ctx.lineWidth = 2;
+      ctx.lineWidth = 1.8;
       ctx.beginPath();
       ctx.rect(-6, -18, 12, 8);
       ctx.fill();
@@ -383,7 +454,7 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
 
       // Periscope Sensor Mast
       ctx.strokeStyle = '#38bdf8';
-      ctx.lineWidth = 2;
+      ctx.lineWidth = 1.8;
       ctx.beginPath();
       ctx.moveTo(0, -18);
       ctx.lineTo(0, -25);
@@ -423,15 +494,20 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
 
       ctx.restore();
 
-      // 8. Draw AUV Telemetry Tag
-      ctx.font = 'bold 11px monospace';
+      // 9. Draw AUV Telemetry Tag & Pressure Calculation
+      const pressureBar = (1 + 0.1 * (submersible.depth / 10)).toFixed(1);
+      ctx.font = 'bold 11px JetBrains Mono, monospace';
       ctx.fillStyle = '#38bdf8';
       ctx.fillText(`AUV-AQUAPULSE [${submersible.depth.toFixed(0)}m]`, auvCanvasX - 60, auvCanvasY - 32);
 
       const auvProps = getOceanPropertiesAtDepth(layers, submersible.depth);
-      ctx.font = '10px monospace';
+      ctx.font = '10px JetBrains Mono, monospace';
       ctx.fillStyle = '#94a3b8';
-      ctx.fillText(`T: ${auvProps.temp.toFixed(1)}°C | c: ${auvProps.soundSpeed.toFixed(0)}m/s`, auvCanvasX - 60, auvCanvasY - 20);
+      ctx.fillText(
+        `T: ${auvProps.temp.toFixed(1)}°C | c: ${auvProps.soundSpeed.toFixed(0)}m/s | P: ${pressureBar}bar`,
+        auvCanvasX - 60,
+        auvCanvasY - 18
+      );
 
       // Loop animation
       animationFrameRef.current = requestAnimationFrame(render);
@@ -458,7 +534,7 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
     const auvCanvasY = (submersible.depth / WORLD_DEPTH_M) * canvas.height;
 
     const dist = Math.hypot(clickX - auvCanvasX, clickY - auvCanvasY);
-    if (dist < 40) {
+    if (dist < 45) {
       setIsDraggingAuv(true);
     }
   };
@@ -482,9 +558,9 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
   };
 
   return (
-    <div className="relative w-full h-full bg-[#030712] rounded-xl overflow-hidden border border-slate-800 shadow-2xl flex flex-col">
+    <div className="relative w-full h-full bg-[#020612] rounded-xl overflow-hidden border border-slate-800 shadow-2xl flex flex-col">
       {/* Viewport Header Controls Overlay */}
-      <div className="absolute top-3 left-4 right-4 z-10 flex flex-wrap items-center justify-between gap-3 bg-slate-900/80 backdrop-blur-md px-4 py-2.5 rounded-lg border border-slate-700/60 shadow-lg">
+      <div className="absolute top-3 left-4 right-4 z-10 flex flex-wrap items-center justify-between gap-3 bg-slate-900/85 backdrop-blur-md px-4 py-2.5 rounded-lg border border-slate-700/60 shadow-lg">
         <div className="flex items-center space-x-3">
           <div className="flex items-center space-x-2">
             <span className="relative flex h-3 w-3">
@@ -499,7 +575,7 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
                 }`}
               />
             </span>
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-200">
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-200 font-mono">
               {mode === 'rc-css' ? 'Rolling-Channel CSS' : 'Traditional CW Ping'}
             </span>
           </div>
@@ -509,7 +585,7 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
           <div className="text-xs text-slate-300 font-mono">
             <span className="text-slate-400">Band:</span>{' '}
             <span style={{ color: activeBand.color }} className="font-bold">
-              {mode === 'rc-css' ? `${activeBand.name} (${activeBand.fStart}-${activeBand.fEnd} kHz)` : 'Fixed 45 kHz CW Tone'}
+              {mode === 'rc-css' ? `${activeBand.name} (${activeBand.fStart}-${activeBand.fEnd} kHz)` : 'Fixed 450 kHz CW Tone'}
             </span>
           </div>
         </div>
@@ -543,23 +619,23 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
       />
 
       {/* Bottom Floating Legend & Hint */}
-      <div className="absolute bottom-3 left-4 right-4 z-10 flex items-center justify-between text-[11px] text-slate-400 bg-slate-950/70 backdrop-blur-sm px-3 py-1.5 rounded-md border border-slate-800">
-        <div className="flex items-center space-x-4 font-mono">
+      <div className="absolute bottom-3 left-4 right-4 z-10 flex items-center justify-between text-[11px] text-slate-400 bg-slate-950/80 backdrop-blur-sm px-3 py-1.5 rounded-md border border-slate-800">
+        <div className="flex items-center space-x-4 font-mono text-[10px]">
           <span className="flex items-center space-x-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block" />
-            <span>Ch 0: 100-140 kHz (Deep/Turbid)</span>
+            <span className="w-2 h-2 rounded-full bg-amber-500 inline-block" />
+            <span>Ch 0: 100-140 kHz (Deep / Turbid)</span>
           </span>
           <span className="flex items-center space-x-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block" />
-            <span>Ch 1: 200-250 kHz (Thermo)</span>
+            <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
+            <span>Ch 1: 200-250 kHz (Thermocline)</span>
           </span>
           <span className="flex items-center space-x-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-purple-500 inline-block" />
-            <span>Ch 2: 400-480 kHz (High-Res)</span>
+            <span className="w-2 h-2 rounded-full bg-purple-500 inline-block" />
+            <span>Ch 2: 400-480 kHz (High-Res Bathymetry)</span>
           </span>
         </div>
-        <div className="text-slate-400 font-sans italic">
-          💡 Drag the yellow AUV icon to adjust depth and observe Snell refraction!
+        <div className="text-slate-400 font-sans italic text-[10px]">
+          💡 Drag AUV or use Arrow Keys to steer through layers!
         </div>
       </div>
     </div>

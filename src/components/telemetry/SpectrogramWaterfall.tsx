@@ -1,6 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import { EchoReturn, ChirpBand, SonarMode } from '../../types/sonar';
 import { Activity } from 'lucide-react';
+import { useAnimatedValue } from '../../hooks/useAnimatedValue';
 
 interface SpectrogramWaterfallProps {
   echoes: EchoReturn[];
@@ -16,6 +17,11 @@ export const SpectrogramWaterfall: React.FC<SpectrogramWaterfallProps> = ({
   isPinging
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const latestEcho = echoes[echoes.length - 1];
+
+  const animSnr = useAnimatedValue(latestEcho?.snrDb ?? 0, 250, 1);
+  const animGain = useAnimatedValue(latestEcho?.compressionGainDb ?? 0, 250, 1);
+  const animTof = useAnimatedValue(latestEcho?.travelTimeMs ?? 0, 250, 0);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -41,9 +47,9 @@ export const SpectrogramWaterfall: React.FC<SpectrogramWaterfallProps> = ({
         ctx.fillRect(0, y, w, 1);
       }
 
-      // Frequency grid lines
-      const maxFreq = 80;
-      const freqStep = 10;
+      // Frequency grid lines (up to 500 kHz)
+      const maxFreq = 500;
+      const freqStep = 100;
       ctx.font = '8px JetBrains Mono, monospace';
 
       for (let f = 0; f <= maxFreq; f += freqStep) {
@@ -75,7 +81,7 @@ export const SpectrogramWaterfall: React.FC<SpectrogramWaterfallProps> = ({
         const bandY1 = h - (activeBand.fEnd / maxFreq) * h;
         const bandY2 = h - (activeBand.fStart / maxFreq) * h;
         ctx.fillStyle = `${activeBand.color}10`;
-        ctx.fillRect(28, bandY1, w - 28, bandY2 - bandY1);
+        ctx.fillRect(28, bandY1, w - 28, Math.max(2, bandY2 - bandY1));
       }
 
       // Transmitted chirp / CW tone
@@ -103,7 +109,7 @@ export const SpectrogramWaterfall: React.FC<SpectrogramWaterfallProps> = ({
           ctx.stroke();
           ctx.shadowBlur = 0;
         } else {
-          const yCW = h - (45 / maxFreq) * h;
+          const yCW = h - (450 / maxFreq) * h;
           // CW tone glow
           ctx.strokeStyle = '#ef4444';
           ctx.lineWidth = 4;
@@ -162,8 +168,6 @@ export const SpectrogramWaterfall: React.FC<SpectrogramWaterfallProps> = ({
     return () => cancelAnimationFrame(animationId);
   }, [echoes, activeBand, mode, isPinging]);
 
-  const latestEcho = echoes[echoes.length - 1];
-
   return (
     <div className="glass-panel panel-accent-purple flex flex-col h-full overflow-hidden">
       <div className="px-4 pt-3.5">
@@ -174,43 +178,52 @@ export const SpectrogramWaterfall: React.FC<SpectrogramWaterfallProps> = ({
             </div>
             <div>
               <div className="panel-title text-violet-400">Spectrogram Waterfall</div>
-              <p className="text-[9px] text-slate-500 mt-0.5">Matched-Filter Pulse Compression</p>
+              <p className="text-[9px] text-slate-500 mt-0.5">Time-Frequency Energy Heatmap</p>
             </div>
           </div>
-          <div className="hud-chip bg-violet-950/70 text-violet-400 border-violet-700/50">0 – 80 kHz</div>
+          <div className="hud-chip bg-violet-950/70 text-violet-400 border-violet-700/50">0 – 500 kHz</div>
         </div>
       </div>
 
-      <div className="relative flex-1 mx-4 mb-3 rounded-lg overflow-hidden border border-white/[0.06]"
-        style={{ background: '#010810' }}>
+      <div
+        className="relative flex-1 mx-4 mb-3 rounded-lg overflow-hidden border border-white/[0.06]"
+        style={{ background: '#010810' }}
+      >
         <canvas ref={canvasRef} width={400} height={180} className="w-full h-full block" />
         {/* Subtle scan overlay */}
-        <div className="pointer-events-none absolute inset-0"
+        <div
+          className="pointer-events-none absolute inset-0"
           style={{
-            background: 'repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,0.04) 3px, rgba(0,0,0,0.04) 4px)',
-          }} />
+            background:
+              'repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,0.04) 3px, rgba(0,0,0,0.04) 4px)'
+          }}
+        />
       </div>
 
       {/* Telemetry footer */}
       <div className="px-4 pb-3.5 border-t border-white/[0.06] pt-2 grid grid-cols-3 gap-2">
         <div className="telemetry-cell">
           <div className="telemetry-label text-violet-500/70">Peak SNR</div>
-          <div className={`telemetry-value text-sm ${latestEcho?.success ? 'text-emerald-300' : 'text-rose-400'}`}>
-            {latestEcho ? `${latestEcho.snrDb.toFixed(1)}` : '--'}
+          <div
+            className={`telemetry-value text-sm ${
+              latestEcho?.success ? 'text-emerald-300' : latestEcho ? 'text-rose-400' : 'text-slate-500'
+            }`}
+          >
+            {latestEcho ? `${animSnr}` : '--'}
           </div>
           <div className="text-[8px] text-slate-600">dB</div>
         </div>
         <div className="telemetry-cell">
           <div className="telemetry-label text-violet-500/70">Dechirp Gain</div>
           <div className="telemetry-value text-violet-300 text-sm">
-            {latestEcho && mode === 'rc-css' ? `+${latestEcho.compressionGainDb.toFixed(1)}` : '0'}
+            {latestEcho && mode === 'rc-css' ? `+${animGain}` : '0.0'}
           </div>
           <div className="text-[8px] text-slate-600">dB</div>
         </div>
         <div className="telemetry-cell">
           <div className="telemetry-label text-slate-500">2-Way TOF</div>
           <div className="telemetry-value text-cyan-300 text-sm">
-            {latestEcho ? `${latestEcho.travelTimeMs.toFixed(0)}` : '--'}
+            {latestEcho ? `${animTof}` : '--'}
           </div>
           <div className="text-[8px] text-slate-600">ms</div>
         </div>

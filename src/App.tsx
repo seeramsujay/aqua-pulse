@@ -3,16 +3,21 @@ import { Submersible, EchoReturn, BathymetryPoint, SonarMode, PresetScenario, Ch
 import { STANDARD_CHIRP_BANDS } from './physics/oceanAcoustics';
 import { SCENARIO_PRESETS } from './physics/presets';
 import { Navbar } from './components/common/Navbar';
+import { BootSequence } from './components/common/BootSequence';
 import { OceanCanvas } from './components/simulations/OceanCanvas';
 import { ComparisonView } from './components/simulations/ComparisonView';
 import { BathymetryMap } from './components/simulations/BathymetryMap';
 import { SoundSpeedProfile } from './components/telemetry/SoundSpeedProfile';
 import { SpectrogramWaterfall } from './components/telemetry/SpectrogramWaterfall';
 import { PhysicsPanel } from './components/telemetry/PhysicsPanel';
+import { PulseCompressionChart } from './components/telemetry/PulseCompressionChart';
+import { AbsorptionCurve } from './components/telemetry/AbsorptionCurve';
+import { MissionLog, MissionEvent } from './components/telemetry/MissionLog';
 import { AcousticTheoryModal } from './components/common/AcousticTheoryModal';
-import { Compass, Navigation, Signal } from 'lucide-react';
+import { Compass, Navigation, Signal, Activity, Cpu, Terminal } from 'lucide-react';
 
 export function App() {
+  const [isBooting, setIsBooting] = useState<boolean>(true);
   const [scenarios] = useState<PresetScenario[]>(SCENARIO_PRESETS);
   const [activeScenario, setActiveScenario] = useState<PresetScenario>(SCENARIO_PRESETS[0]);
   const [mode, setMode] = useState<SonarMode>('rc-css');
@@ -22,6 +27,7 @@ export function App() {
   const [isAutoPinging, setIsAutoPinging] = useState<boolean>(false);
   const [isTheoryOpen, setIsTheoryOpen] = useState<boolean>(false);
   const [pingFlash, setPingFlash] = useState(false);
+  const [telemetryTab, setTelemetryTab] = useState<'SIGNAL' | 'DSP' | 'LOG'>('SIGNAL');
 
   const [submersible, setSubmersible] = useState<Submersible>({
     x: 450,
@@ -35,14 +41,37 @@ export function App() {
 
   const [echoes, setEchoes] = useState<EchoReturn[]>([]);
   const [soundings, setSoundings] = useState<BathymetryPoint[]>([]);
+  const [missionEvents, setMissionEvents] = useState<MissionEvent[]>([
+    {
+      id: 'init-1',
+      timestamp: new Date().toLocaleTimeString('en-US', { hour12: false }),
+      type: 'SYSTEM',
+      title: 'AQUAPULSE Ground Station Online',
+      details: 'Connected to MoES / NIOT Autonomous Hydrographic Telemetry Payload.'
+    }
+  ]);
 
   const activeBand = bands[activeBandIndex] || bands[0];
+
+  const addMissionEvent = useCallback((event: Omit<MissionEvent, 'id' | 'timestamp'>) => {
+    const newEvent: MissionEvent = {
+      ...event,
+      id: `evt-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+      timestamp: new Date().toLocaleTimeString('en-US', { hour12: false })
+    };
+    setMissionEvents((prev) => [...prev.slice(-35), newEvent]);
+  }, []);
 
   const handleSelectScenario = (scenario: PresetScenario) => {
     setActiveScenario(scenario);
     setSubmersible((prev) => ({ ...prev, depth: scenario.auvDepth, x: 450 }));
     setSoundings([]);
     setEchoes([]);
+    addMissionEvent({
+      type: 'SCENARIO_CHANGE',
+      title: `Scenario Loaded: ${scenario.name}`,
+      details: `Profile: ${scenario.subtitle}. AUV depth set to ${scenario.auvDepth}m.`
+    });
   };
 
   const handleEchoDetected = useCallback(
@@ -50,11 +79,34 @@ export function App() {
       setEchoes((prev) => [...prev.slice(-40), echo]);
       setPingFlash(true);
       setTimeout(() => setPingFlash(false), 300);
+
+      if (echo.success) {
+        addMissionEvent({
+          type: 'ECHO_LOCK',
+          title: `Echo Locked @ ${echo.calculatedDepthM.toFixed(0)}m (${echo.freqKHz.toFixed(0)} kHz)`,
+          details: `SNR: +${echo.snrDb.toFixed(1)} dB | Gain: +${echo.compressionGainDb.toFixed(1)} dB | TOF: ${echo.travelTimeMs.toFixed(0)} ms`
+        });
+      } else {
+        addMissionEvent({
+          type: 'SHADOW_ZONE',
+          title: `Acoustic Shadow Zone Intercept (${echo.freqKHz.toFixed(0)} kHz)`,
+          details: `Echo attenuated below detection threshold (${echo.attenuationDb.toFixed(1)} dB loss).`
+        });
+      }
+
       if (autoRoll && mode === 'rc-css') {
-        setActiveBandIndex((prev) => (prev + 1) % bands.length);
+        setActiveBandIndex((prev) => {
+          const nextIdx = (prev + 1) % bands.length;
+          addMissionEvent({
+            type: 'CHANNEL_ROLL',
+            title: `RC-CSS Rolling Band → ${bands[nextIdx].name}`,
+            details: `Frequency: ${bands[nextIdx].fStart}-${bands[nextIdx].fEnd} kHz (${bands[nextIdx].targetRegime})`
+          });
+          return nextIdx;
+        });
       }
     },
-    [autoRoll, mode, bands.length]
+    [autoRoll, mode, bands, addMissionEvent]
   );
 
   const handleSoundingPoint = useCallback((point: BathymetryPoint) => {
@@ -84,7 +136,10 @@ export function App() {
   }, []);
 
   return (
-    <div className="min-h-screen text-slate-100 flex flex-col font-sans" style={{ background: '#030712' }}>
+    <div className="min-h-screen text-slate-100 flex flex-col font-sans" style={{ background: '#020612' }}>
+      {/* Boot Sequence Overlay */}
+      {isBooting && <BootSequence onComplete={() => setIsBooting(false)} />}
+
       {/* Navigation */}
       <Navbar
         mode={mode}
@@ -95,6 +150,7 @@ export function App() {
         isAutoPinging={isAutoPinging}
         setIsAutoPinging={setIsAutoPinging}
         onOpenTheory={() => setIsTheoryOpen(true)}
+        onOpenBoot={() => setIsBooting(true)}
       />
 
       {/* Auto-sweep status ribbon */}
@@ -102,50 +158,65 @@ export function App() {
         <div className="bg-emerald-950/60 border-b border-emerald-800/50 px-4 py-1 flex items-center justify-center gap-2">
           <span className="status-dot text-emerald-400" style={{ backgroundColor: '#34d399' }} />
           <span className="font-mono text-[10px] text-emerald-300 tracking-widest uppercase">
-            Auto-Sweep Active — RC-CSS Rolling Channel Transmission
+            Auto-Sweep Active — RC-CSS Stepped Multi-Tone Transmission
           </span>
         </div>
       )}
 
       {/* Main layout */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 flex flex-col gap-4">
-
         {/* Mission Header Card */}
         <div className="glass-panel px-4 py-3 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-hydro-900/50 border border-hydro-700/40 text-hydro-300 flex-shrink-0">
+            <div className="p-2 rounded-lg bg-cyan-950/70 border border-cyan-700/40 text-cyan-300 flex-shrink-0">
               <Compass className="w-4 h-4" />
             </div>
             <div>
               <div className="flex items-center gap-2.5 flex-wrap">
                 <h2 className="text-sm font-bold text-slate-100 font-mono">{activeScenario.name}</h2>
-                <span className="hud-chip bg-slate-900/80 text-slate-400 border-slate-700/60">{activeScenario.subtitle}</span>
+                <span className="hud-chip bg-slate-900/80 text-slate-400 border-slate-700/60">
+                  {activeScenario.subtitle}
+                </span>
               </div>
-              <p className="text-[11px] text-slate-500 mt-0.5 max-w-2xl leading-relaxed">{activeScenario.description}</p>
+              <p className="text-[11px] text-slate-400 mt-0.5 max-w-2xl leading-relaxed font-sans">
+                {activeScenario.description}
+              </p>
             </div>
           </div>
 
           {/* AUV Telemetry strip */}
           <div className="flex items-center gap-2 flex-wrap">
-            <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-white/[0.07] font-mono text-[10px]"
-              style={{ background: 'rgba(0,0,0,0.45)' }}>
-              <Navigation className="w-3 h-3 text-hydro-400" />
-              <span className="text-slate-500">X:</span>
-              <span className={`text-hydro-300 font-bold transition-all ${pingFlash ? 'text-white' : ''}`}>
+            <div
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-white/[0.07] font-mono text-[10px]"
+              style={{ background: 'rgba(0,0,0,0.45)' }}
+            >
+              <Navigation className="w-3 h-3 text-cyan-400" />
+              <span className="text-slate-500">POS X:</span>
+              <span className={`text-cyan-300 font-bold transition-all ${pingFlash ? 'text-white' : ''}`}>
                 {submersible.x.toFixed(0)}m
               </span>
               <span className="text-white/20 mx-1">|</span>
-              <span className="text-slate-500">Z:</span>
+              <span className="text-slate-500">DEPTH:</span>
               <span className={`text-amber-300 font-bold transition-all ${pingFlash ? 'text-white' : ''}`}>
                 {submersible.depth.toFixed(0)}m
               </span>
             </div>
-            <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-white/[0.07] font-mono text-[10px]"
-              style={{ background: 'rgba(0,0,0,0.45)' }}>
+            <div
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-white/[0.07] font-mono text-[10px]"
+              style={{ background: 'rgba(0,0,0,0.45)' }}
+            >
               <Signal className="w-3 h-3 text-emerald-400" />
-              <span className="text-slate-500">Mode:</span>
-              <span className={`font-bold ml-1 ${mode === 'rc-css' ? 'text-hydro-300' : mode === 'traditional-cw' ? 'text-rose-400' : 'text-violet-400'}`}>
-                {mode === 'rc-css' ? 'RC-CSS' : mode === 'traditional-cw' ? 'CW TONE' : 'COMPARE'}
+              <span className="text-slate-500">PROTOCOL:</span>
+              <span
+                className={`font-bold ml-1 ${
+                  mode === 'rc-css'
+                    ? 'text-cyan-300'
+                    : mode === 'traditional-cw'
+                    ? 'text-rose-400'
+                    : 'text-violet-400'
+                }`}
+              >
+                {mode === 'rc-css' ? 'RC-CSS (Agile)' : mode === 'traditional-cw' ? 'CW (Fixed 450k)' : 'BENCHMARK'}
               </span>
             </div>
           </div>
@@ -156,9 +227,9 @@ export function App() {
           <ComparisonView onSelectMode={(selected) => setMode(selected)} />
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 flex-1">
-            {/* Left: Ocean Canvas + Bathymetry */}
-            <div className="lg:col-span-8 flex flex-col gap-4 min-h-[560px]">
-              <div className="flex-1 w-full min-h-[460px]">
+            {/* Left: Ocean Canvas + Bathymetry Viewport */}
+            <div className="lg:col-span-8 flex flex-col gap-4 min-h-[580px]">
+              <div className="flex-1 w-full min-h-[480px]">
                 <OceanCanvas
                   submersible={submersible}
                   setSubmersible={setSubmersible}
@@ -171,7 +242,7 @@ export function App() {
                   isAutoPinging={isAutoPinging}
                 />
               </div>
-              <div className="h-[260px]">
+              <div className="h-[250px]">
                 <BathymetryMap
                   soundings={soundings}
                   terrainType={activeScenario.terrainType}
@@ -180,57 +251,166 @@ export function App() {
               </div>
             </div>
 
-            {/* Right: Telemetry column */}
-            <div className="lg:col-span-4 flex flex-col gap-4">
-              <div className="h-[300px]">
-                <SoundSpeedProfile layers={activeScenario.layers} auvDepth={submersible.depth} />
+            {/* Right: Tabbed Telemetry & DSP Analysis Column */}
+            <div className="lg:col-span-4 flex flex-col gap-3">
+              {/* Telemetry Tab Switcher Bar */}
+              <div
+                className="flex items-center justify-between p-1 rounded-xl border border-white/[0.08]"
+                style={{ background: 'rgba(2, 6, 18, 0.85)' }}
+              >
+                <button
+                  onClick={() => setTelemetryTab('SIGNAL')}
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg font-mono text-[10px] font-bold tracking-wider transition-all ${
+                    telemetryTab === 'SIGNAL'
+                      ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/50 shadow-[0_0_10px_rgba(0,240,255,0.2)]'
+                      : 'text-slate-500 hover:text-slate-300'
+                  }`}
+                >
+                  <Activity className="w-3 h-3" />
+                  <span>SIGNAL</span>
+                </button>
+
+                <button
+                  onClick={() => setTelemetryTab('DSP')}
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg font-mono text-[10px] font-bold tracking-wider transition-all ${
+                    telemetryTab === 'DSP'
+                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/50 shadow-[0_0_10px_rgba(52,211,153,0.2)]'
+                      : 'text-slate-500 hover:text-slate-300'
+                  }`}
+                >
+                  <Cpu className="w-3 h-3" />
+                  <span>DSP &amp; PHYSICS</span>
+                </button>
+
+                <button
+                  onClick={() => setTelemetryTab('LOG')}
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg font-mono text-[10px] font-bold tracking-wider transition-all ${
+                    telemetryTab === 'LOG'
+                      ? 'bg-amber-500/20 text-amber-300 border border-amber-500/50 shadow-[0_0_10px_rgba(251,191,36,0.2)]'
+                      : 'text-slate-500 hover:text-slate-300'
+                  }`}
+                >
+                  <Terminal className="w-3 h-3" />
+                  <span>TACTICAL LOG</span>
+                </button>
               </div>
-              <div className="h-[250px]">
-                <SpectrogramWaterfall
-                  echoes={echoes}
-                  activeBand={activeBand}
-                  mode={mode}
-                  isPinging={submersible.pingActive}
-                />
-              </div>
-              <div className="flex-1 min-h-[220px]">
-                <PhysicsPanel
-                  activeBand={activeBand}
-                  setActiveBand={(band) => {
-                    const idx = bands.findIndex((b) => b.id === band.id);
-                    if (idx !== -1) setActiveBandIndex(idx);
-                  }}
-                  bands={bands}
-                  mode={mode}
-                  submersible={submersible}
-                  layers={activeScenario.layers}
-                  autoRoll={autoRoll}
-                  setAutoRoll={setAutoRoll}
-                />
-              </div>
+
+              {/* Tab Contents */}
+              {telemetryTab === 'SIGNAL' && (
+                <div className="flex flex-col gap-3 flex-1">
+                  <div className="h-[280px]">
+                    <SoundSpeedProfile layers={activeScenario.layers} auvDepth={submersible.depth} />
+                  </div>
+                  <div className="h-[240px]">
+                    <SpectrogramWaterfall
+                      echoes={echoes}
+                      activeBand={activeBand}
+                      mode={mode}
+                      isPinging={submersible.pingActive}
+                    />
+                  </div>
+                  <div className="flex-1 min-h-[200px]">
+                    <PhysicsPanel
+                      activeBand={activeBand}
+                      setActiveBand={(band) => {
+                        const idx = bands.findIndex((b) => b.id === band.id);
+                        if (idx !== -1) setActiveBandIndex(idx);
+                      }}
+                      bands={bands}
+                      mode={mode}
+                      submersible={submersible}
+                      layers={activeScenario.layers}
+                      autoRoll={autoRoll}
+                      setAutoRoll={setAutoRoll}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {telemetryTab === 'DSP' && (
+                <div className="flex flex-col gap-3 flex-1">
+                  <div className="h-[270px]">
+                    <PulseCompressionChart
+                      activeBand={activeBand}
+                      mode={mode}
+                      isPinging={submersible.pingActive}
+                    />
+                  </div>
+                  <div className="h-[240px]">
+                    <AbsorptionCurve
+                      activeBand={activeBand}
+                      mode={mode}
+                      bands={bands}
+                    />
+                  </div>
+                  <div className="flex-1 min-h-[200px]">
+                    <PhysicsPanel
+                      activeBand={activeBand}
+                      setActiveBand={(band) => {
+                        const idx = bands.findIndex((b) => b.id === band.id);
+                        if (idx !== -1) setActiveBandIndex(idx);
+                      }}
+                      bands={bands}
+                      mode={mode}
+                      submersible={submersible}
+                      layers={activeScenario.layers}
+                      autoRoll={autoRoll}
+                      setAutoRoll={setAutoRoll}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {telemetryTab === 'LOG' && (
+                <div className="flex flex-col gap-3 flex-1">
+                  <div className="h-[360px]">
+                    <MissionLog
+                      events={missionEvents}
+                      onClearLogs={() => setMissionEvents([])}
+                    />
+                  </div>
+                  <div className="flex-1 min-h-[220px]">
+                    <PhysicsPanel
+                      activeBand={activeBand}
+                      setActiveBand={(band) => {
+                        const idx = bands.findIndex((b) => b.id === band.id);
+                        if (idx !== -1) setActiveBandIndex(idx);
+                      }}
+                      bands={bands}
+                      mode={mode}
+                      submersible={submersible}
+                      layers={activeScenario.layers}
+                      autoRoll={autoRoll}
+                      setAutoRoll={setAutoRoll}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-white/[0.05] px-4 py-2.5 font-mono text-[10px] text-slate-600 flex flex-wrap items-center justify-between gap-2"
-        style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(12px)' }}>
+      <footer
+        className="border-t border-white/[0.05] px-4 py-2.5 font-mono text-[10px] text-slate-500 flex flex-wrap items-center justify-between gap-2"
+        style={{ background: 'rgba(2, 6, 18, 0.8)', backdropFilter: 'blur(12px)' }}
+      >
         <div className="flex items-center gap-3">
-          <span className="text-slate-500">AquaPulse Cyber-Physical Suite</span>
+          <span className="text-slate-400">AquaPulse Ground Station Console</span>
           <span className="text-white/15">·</span>
-          <span className="text-hydro-500/70">RC-CSS Acoustic Bathymetry Engine v2.0.0</span>
+          <span className="text-cyan-400/80">SIH26058 MoES / NIOT Autonomous Bathymetric Sounding Solution</span>
         </div>
-        <div className="flex items-center gap-3 text-slate-600">
+        <div className="flex items-center gap-3 text-slate-500">
           <span className="flex items-center gap-1">
-            <kbd className="px-1.5 py-0.5 rounded bg-slate-900 border border-slate-800 text-slate-400">Space</kbd>
-            <span>Ping</span>
+            <kbd className="px-1.5 py-0.5 rounded bg-slate-900 border border-slate-800 text-slate-300">Space</kbd>
+            <span>Transmit Ping</span>
           </span>
           <span className="flex items-center gap-1">
-            <kbd className="px-1.5 py-0.5 rounded bg-slate-900 border border-slate-800 text-slate-400">↑↓←→</kbd>
-            <span>Steer AUV</span>
+            <kbd className="px-1.5 py-0.5 rounded bg-slate-900 border border-slate-800 text-slate-300">↑↓←→</kbd>
+            <span>Steer AUV Depth/Range</span>
           </span>
-          <span className="text-slate-700">· Drag AUV on canvas</span>
+          <span className="text-slate-600">· Drag Submersible on Viewport</span>
         </div>
       </footer>
 

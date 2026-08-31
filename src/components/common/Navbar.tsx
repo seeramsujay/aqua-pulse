@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { SonarMode, PresetScenario } from '../../types/sonar';
-import { Radio, Layers, BookOpen, Play, Pause, Activity, Sparkles, Wifi } from 'lucide-react';
+import { Radio, Layers, BookOpen, Play, Pause, Activity, Sparkles, Wifi, Cpu, Terminal } from 'lucide-react';
 
 interface NavbarProps {
   mode: SonarMode;
@@ -11,6 +11,7 @@ interface NavbarProps {
   isAutoPinging: boolean;
   setIsAutoPinging: (val: boolean) => void;
   onOpenTheory: () => void;
+  onOpenBoot?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -21,7 +22,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   onSelectScenario,
   isAutoPinging,
   setIsAutoPinging,
-  onOpenTheory
+  onOpenTheory,
+  onOpenBoot
 }) => {
   const [time, setTime] = useState(new Date());
 
@@ -36,7 +38,7 @@ export const Navbar: React.FC<NavbarProps> = ({
       label: 'Rolling-CSS',
       shortLabel: 'RC-CSS',
       icon: <Sparkles className="w-3 h-3" />,
-      activeClass: 'bg-hydro-500/20 text-hydro-300 border-hydro-500/60 shadow-glow-cyan-sm',
+      activeClass: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/60 shadow-[0_0_12px_rgba(0,240,255,0.3)]',
     },
     {
       id: 'traditional-cw',
@@ -55,27 +57,25 @@ export const Navbar: React.FC<NavbarProps> = ({
   ];
 
   return (
-    <header className="sticky top-0 z-40 border-b border-white/[0.06] shadow-xl"
-      style={{ background: 'rgba(3, 7, 18, 0.92)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)' }}>
-
+    <header
+      className="sticky top-0 z-40 border-b border-white/[0.06] shadow-xl"
+      style={{ background: 'rgba(2, 6, 18, 0.94)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)' }}
+    >
       {/* Top line — thin accent */}
-      <div className="h-[2px] bg-gradient-to-r from-transparent via-hydro-500/60 to-transparent" />
+      <div className="h-[2px] bg-gradient-to-r from-transparent via-cyan-400/80 to-transparent" />
 
-      <div className="max-w-7xl mx-auto px-4 py-2.5 flex flex-wrap items-center justify-between gap-3">
-
+      <div className="max-w-7xl mx-auto px-4 py-2 flex flex-wrap items-center justify-between gap-3">
         {/* ── Brand ── */}
         <div className="flex items-center gap-3">
           {/* Sonar Logo */}
           <div className="relative flex items-center justify-center w-9 h-9 flex-shrink-0">
-            {/* Animated sonar rings */}
             <span className="sonar-logo-ring" />
             <span className="sonar-logo-ring" />
-            <div className="relative z-10 flex items-center justify-center w-9 h-9 rounded-xl bg-hydro-900/60 border border-hydro-500/40">
-              <Radio className="w-4 h-4 text-hydro-300" />
-              {/* Active ping dot */}
+            <div className="relative z-10 flex items-center justify-center w-9 h-9 rounded-xl bg-cyan-950/80 border border-cyan-500/40">
+              <Radio className="w-4 h-4 text-cyan-300" />
               <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-hydro-300 opacity-70" />
-                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-hydro-400" />
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-300 opacity-70" />
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-cyan-400" />
               </span>
             </div>
           </div>
@@ -87,19 +87,19 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <span className="text-slate-100">AQUA</span>
                 <span className="text-gradient-cyan">PULSE</span>
               </h1>
-              <span className="hud-chip bg-hydro-900/70 text-hydro-300 border-hydro-700/60">
+              <span className="hud-chip bg-cyan-950/80 text-cyan-300 border-cyan-700/60">
                 RC-CSS SONAR
               </span>
             </div>
             <p className="text-[10px] text-slate-500 font-sans tracking-wide mt-0.5 hidden sm:block">
-              Rolling-Channel Chirp Spread Spectrum · Acoustic Bathymetry
+              Cognitive Software-Defined Acoustic Payload · Ground Control Console
             </p>
           </div>
         </div>
 
         {/* ── Scenario Selector ── */}
         <div className="flex items-center gap-2">
-          <span className="telemetry-label hidden md:inline">Mission:</span>
+          <span className="telemetry-label hidden md:inline">Mission Profile:</span>
           <select
             id="scenario-select"
             value={activeScenario.id}
@@ -107,7 +107,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               const selected = scenarios.find((s) => s.id === e.target.value);
               if (selected) onSelectScenario(selected);
             }}
-            className="font-mono text-[11px] rounded-lg px-2.5 py-1.5 border transition-all focus:outline-none focus:border-hydro-500/60"
+            className="font-mono text-[11px] rounded-lg px-2.5 py-1.5 border transition-all focus:outline-none focus:border-cyan-500/60"
             style={{
               background: 'rgba(0,0,0,0.5)',
               borderColor: 'rgba(255,255,255,0.1)',
@@ -164,12 +164,23 @@ export const Navbar: React.FC<NavbarProps> = ({
           <button
             id="theory-btn"
             onClick={onOpenTheory}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-mono font-semibold text-slate-400 border border-white/[0.08] bg-black/30 hover:text-hydro-300 hover:border-hydro-500/40 transition-all duration-200"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-mono font-semibold text-slate-400 border border-white/[0.08] bg-black/30 hover:text-cyan-300 hover:border-cyan-500/40 transition-all duration-200"
             title="Acoustic Theory Reference"
           >
             <BookOpen className="w-3.5 h-3.5" />
             <span className="hidden lg:inline">THEORY GUIDE</span>
           </button>
+
+          {/* Boot sequence replay button */}
+          {onOpenBoot && (
+            <button
+              onClick={onOpenBoot}
+              className="p-1.5 rounded-lg text-slate-500 border border-white/[0.08] bg-black/30 hover:text-cyan-300 hover:border-cyan-500/40 transition-all"
+              title="Re-run System Initialization"
+            >
+              <Terminal className="w-3.5 h-3.5" />
+            </button>
+          )}
 
           {/* Live clock / status */}
           <div className="hidden xl:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-white/[0.06] font-mono text-[10px] text-slate-500"
@@ -179,6 +190,30 @@ export const Navbar: React.FC<NavbarProps> = ({
             <span className="text-white/20">|</span>
             <span>{time.toLocaleTimeString('en-US', { hour12: false })}</span>
           </div>
+        </div>
+      </div>
+
+      {/* Hardware Sub-System Telemetry Strip */}
+      <div className="border-t border-white/[0.04] bg-black/40 px-4 py-1 flex items-center justify-between text-[9px] font-mono text-slate-500">
+        <div className="flex items-center gap-4">
+          <span className="flex items-center gap-1.5 text-slate-400">
+            <Cpu className="w-2.5 h-2.5 text-cyan-400" />
+            <span>STM32H7 DMA TRGO: <strong className="text-slate-200">2.4 MSPS</strong></span>
+          </span>
+          <span className="hidden md:inline text-white/10">|</span>
+          <span className="hidden md:flex items-center gap-1.5 text-slate-400">
+            <Activity className="w-2.5 h-2.5 text-teal-400" />
+            <span>OPA1612 SALLEN-KEY: <strong className="text-slate-200">fc = 450 kHz</strong></span>
+          </span>
+          <span className="hidden lg:inline text-white/10">|</span>
+          <span className="hidden lg:flex items-center gap-1.5 text-slate-400">
+            <Sparkles className="w-2.5 h-2.5 text-amber-400" />
+            <span>INT8 TINYML INFERENCE: <strong className="text-slate-200">&lt;1.1 ms</strong></span>
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="status-dot text-emerald-400" style={{ backgroundColor: '#34d399' }} />
+          <span className="text-emerald-400/90 font-bold uppercase tracking-wider">Acoustic Transceiver Locked</span>
         </div>
       </div>
     </header>
