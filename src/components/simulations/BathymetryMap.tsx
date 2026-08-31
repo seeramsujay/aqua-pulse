@@ -212,3 +212,5 @@ export const BathymetryMap: React.FC<BathymetryMapProps> = ({ soundings, terrain
     </div>
   );
 };
+
+// EOF: src/components/simulations/BathymetryMap.tsx

@@ -79,3 +79,5 @@ gantt
 ### Verification Criteria
 - [x] Sub-meter bathymetric accuracy confirmed in wet tank test.
 - [x] IP68 waterproofing certified for continuous immersion.
+
+<!-- EOF: roadmap.md -->

@@ -1,0 +1,13 @@
+Designator,Component,Description,Package,Quantity,Manufacturer,Part Number,Supplier,Supplier Part Number
+U1,OPA1612AIDR,Dual High-Performance Audio Op-Amp 40MHz 27V/us,SOIC-8,1,Texas Instruments,OPA1612AIDR,DigiKey,296-25372-1-ND
+Q1,BD139,NPN Power Bipolar Transistor 80V 1.5A,TO-126,1,STMicroelectronics,BD13916STU,DigiKey,BD13916STU-ND
+Q2,BD140,PNP Power Bipolar Transistor 80V 1.5A,TO-126,1,STMicroelectronics,BD14016STU,DigiKey,BD14016STU-ND
+D1-D2,1N4148,High-Speed Switching Diode 100V 200mA,SOD-123,2,Vishay,1N4148W-G3-08,Mouser,78-1N4148W-G3-08
+R1-R4,1.2k 0.1%,Precision Metal Film Resistor 1.2 kOhm 0.1% 25ppm,0805,4,Panasonic,ERA-6AEB122V,DigiKey,P1.2KDACT-ND
+C1-C2,470pF 1%,C0G/NP0 Ceramic Capacitor 470pF 50V 1%,0805,2,Murata,GRM2195C1H471JA01D,DigiKey,490-1284-1-ND
+C3-C4,220pF 1%,C0G/NP0 Ceramic Capacitor 220pF 50V 1%,0805,2,Murata,GRM2195C1H221JA01D,DigiKey,490-1282-1-ND
+RE1-RE2,0.47 Ohm 2W,Emitter Degeneration Metal Film Resistor 0.47R 2W,Axial/SMD,2,Vishay Dale,CW002R4700JE12,DigiKey,541-CW002R4700JE12-ND
+COUT,10uF 100V,Low ESR Polypropylene DC Blocking Capacitor 10uF,Radial,1,WIMA,MKP10 10uF 100V,Mouser,505-MKP10-10/100/10
+RLOAD,50 Ohm 5W,Matched 50 Ohm Non-Inductive Dummy Load Resistor,TO-220,1,Ohmite,TCH35P50R0JE,DigiKey,TCH35P50R0JE-ND
+J1,BNC-Jack,Female BNC 50 Ohm Edge Mount Connector,Through-Hole,1,Amphenol RF,112404,DigiKey,ARF1023-ND
+U2,INA219AIDR,I2C High-Side Current & Power Monitor Sensor,SOIC-8,1,Texas Instruments,INA219AIDR,DigiKey,296-23770-1-ND

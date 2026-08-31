@@ -23,8 +23,22 @@ dist-ssr
 *.sln
 *.sw?
 
+# Archives
+*.tar
+*.tar.gz
+*.zip
+*.rar
+*.7z
+
 # User global rules
 uv.lock
 .venv
 __pycache__/
 *.py[cod]
+
+# Database & Build Binaries
+*.db
+*.sqlite3
+*.sqlite
+firmware/aquapulse_firmware_sim
+firmware/src/*.o

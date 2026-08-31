@@ -15,3 +15,5 @@ KiCAD / Altium EDA schematics and layout files for the active analog front-end a
 
 3. **Termination:**
    - Benchtop BNC connection terminated into a matched $50\,\Omega$ reactive load for oscilloscope verification.
+
+<!-- EOF: hardware/README.md -->

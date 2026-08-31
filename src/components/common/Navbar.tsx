@@ -219,3 +219,5 @@ export const Navbar: React.FC<NavbarProps> = ({
     </header>
   );
 };
+
+// EOF: src/components/common/Navbar.tsx

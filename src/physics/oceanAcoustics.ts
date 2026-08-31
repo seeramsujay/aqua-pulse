@@ -367,3 +367,5 @@ export const DEFAULT_OCEAN_LAYERS: OceanLayer[] = [
     color: 'rgba(2, 6, 23, 0.85)'
   }
 ];
+
+// EOF: src/physics/oceanAcoustics.ts

@@ -11,3 +11,5 @@ FastAPI service and TimescaleDB time-series database for real-time telemetry ing
 2. **Oceanographic Agentic RAG Service:**
    - Ingests live parameter updates and evaluates oceanographic guidelines (e.g. MoES / NIOT bathymetry rules).
    - Generates real-time mission rationale explaining parameter shifts (e.g., carrier frequency downshifts due to turbidity spikes).
+
+<!-- EOF: backend/README.md -->

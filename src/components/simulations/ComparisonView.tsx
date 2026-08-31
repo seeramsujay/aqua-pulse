@@ -261,3 +261,5 @@ export const ComparisonView: React.FC<ComparisonViewProps> = ({ onSelectMode }) 
     </div>
   );
 };
+
+// EOF: src/components/simulations/ComparisonView.tsx

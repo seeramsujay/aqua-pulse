@@ -47,3 +47,5 @@ src/
 ### 3. `components/common/`
 - **`Navbar.tsx`**: Mode switcher, auto-ping toggle, and ocean preset selector.
 - **`AcousticTheoryModal.tsx`**: Built-in mathematical reference manual.
+
+<!-- EOF: docs/ARCHITECTURE.md -->

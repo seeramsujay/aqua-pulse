@@ -1,0 +1,54 @@
+* AQUAPULSE: 4th-Order Butterworth Filter + Push-Pull Transducer Driver SPICE Netlist
+* Compatible with ngspice, LTspice, and standard SPICE engines
+
+* --- Power Supplies ---
+VCC 10 0 DC 15.0
+VEE 11 0 DC -15.0
+VDAC 1 0 AC 1.0 SIN(0 1.0 250k)
+
+* --- Stage 1: Sallen-Key 2nd Order Active Low-Pass (OPA1612) ---
+R1_1 1 2 1.2k
+R2_1 2 3 1.2k
+C1_1 2 4 470p
+C2_1 3 0 220p
+E_OP1 4 0 3 4 100000
+
+* --- Stage 2: Sallen-Key 2nd Order Active Low-Pass (OPA1612) ---
+R1_2 4 5 1.2k
+R2_2 5 6 1.2k
+C1_2 5 7 470p
+C2_2 6 0 220p
+E_OP2 7 0 6 7 100000
+
+* --- Class-AB Push-Pull Output Stage (BD139 / BD140) ---
+RB1 7 8 100
+D1  8 9 D1N4148
+D2  9 12 D1N4148
+RB2 12 7 100
+
+* Top Transistor (NPN BD139)
+Q_TOP 10 8 13 QBD139
+RE1   13 14 0.47
+
+* Bottom Transistor (PNP BD140)
+Q_BOT 11 12 15 QBD140
+RE2   15 14 0.47
+
+* DC Blocking & Load
+C_OUT 14 16 10u
+R_LOAD 16 0 50
+
+* --- Models ---
+.MODEL D1N4148 D (IS=2.52n RS=0.568 N=1.752 CJO=4p TT=6n BV=100)
+.MODEL QBD139 NPN (IS=1e-13 BF=160 VAF=100 IKF=1.5 ISE=1e-12 NE=1.5 BR=4 VAR=20 IKR=0.3 ISC=1e-11 NC=1.5 RB=1.5 RE=0.1 RC=0.15 CJE=80p CJC=25p TF=1n TR=50n)
+.MODEL QBD140 PNP (IS=1e-13 BF=160 VAF=100 IKF=1.5 ISE=1e-12 NE=1.5 BR=4 VAR=20 IKR=0.3 ISC=1e-11 NC=1.5 RB=1.5 RE=0.1 RC=0.15 CJE=80p CJC=25p TF=1n TR=50n)
+
+* --- Analysis Directives ---
+.AC DEC 50 10k 10MEG
+.TRAN 10n 20u
+.PRINT AC VDB(16) VP(16)
+.PRINT TRAN V(16) V(1)
+
+.END
+
+* EOF: hardware/simulation/filter_and_driver_spice.cir

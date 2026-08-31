@@ -225,3 +225,5 @@ export const SoundSpeedProfile: React.FC<SoundSpeedProfileProps> = ({ layers, au
     </div>
   );
 };
+
+// EOF: src/components/telemetry/SoundSpeedProfile.tsx

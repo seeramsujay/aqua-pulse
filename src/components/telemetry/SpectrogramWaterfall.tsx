@@ -231,3 +231,5 @@ export const SpectrogramWaterfall: React.FC<SpectrogramWaterfallProps> = ({
     </div>
   );
 };
+
+// EOF: src/components/telemetry/SpectrogramWaterfall.tsx

@@ -137,3 +137,5 @@ export const PhysicsPanel: React.FC<PhysicsPanelProps> = ({
     </div>
   );
 };
+
+// EOF: src/components/telemetry/PhysicsPanel.tsx

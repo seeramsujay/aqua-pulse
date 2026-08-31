@@ -59,3 +59,5 @@ The 2nd-order active stage cutoff frequency $f_c$:
 $$f_c = \frac{1}{2\pi \sqrt{R_1 R_2 C_1 C_2}}$$
 
 Cascading two stages delivers a $-80\text{ dB/decade}$ roll-off, removing out-of-band DAC aliasing above $450\text{ kHz}$.
+
+<!-- EOF: docs/physics_manual.md -->

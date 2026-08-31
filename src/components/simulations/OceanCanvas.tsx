@@ -641,3 +641,5 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
     </div>
   );
 };
+
+// EOF: src/components/simulations/OceanCanvas.tsx

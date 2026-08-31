@@ -105,3 +105,5 @@ export interface SpectrogramSample {
   activeChirpId?: string;
   detectedEcho?: boolean;
 }
+
+// EOF: src/types/sonar.ts

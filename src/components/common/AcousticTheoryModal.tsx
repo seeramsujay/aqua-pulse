@@ -169,3 +169,5 @@ export const AcousticTheoryModal: React.FC<AcousticTheoryModalProps> = ({ isOpen
     </div>
   );
 };
+
+// EOF: src/components/common/AcousticTheoryModal.tsx

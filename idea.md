@@ -115,3 +115,5 @@ AQUAPULSE bridges the physical hardware node to an interactive desktop command c
 * **Mackenzie & Francois-Garrison Modeling:** Dynamically computes the oceanic sound speed profile $c(T, S, z)$ using the Mackenzie (1981) formulation and calculates high-frequency acoustic absorption curves.
 * **Snell's Law Ray Tracing:** Simulates acoustic refraction paths across stratified ocean layers ($\frac{\cos\theta_1}{c_1} = \frac{\cos\theta_2}{c_2}$), visually demonstrating how low-frequency adaptations prevent the AUV from being blinded by acoustic shadow zones.
 * **Surface Multi-Agent RAG:** Ingests the real-time parameter stream and cross-references oceanographic guidelines to generate live plain-text mission explanations.
+
+<!-- EOF: idea.md -->

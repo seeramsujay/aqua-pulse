@@ -13,6 +13,7 @@ import { PhysicsPanel } from './components/telemetry/PhysicsPanel';
 import { PulseCompressionChart } from './components/telemetry/PulseCompressionChart';
 import { AbsorptionCurve } from './components/telemetry/AbsorptionCurve';
 import { MissionLog, MissionEvent } from './components/telemetry/MissionLog';
+import { LiveHardwareBridge } from './components/telemetry/LiveHardwareBridge';
 import { AcousticTheoryModal } from './components/common/AcousticTheoryModal';
 import { Compass, Navigation, Signal, Activity, Cpu, Terminal } from 'lucide-react';
 
@@ -309,6 +310,11 @@ export function App() {
                       isPinging={submersible.pingActive}
                     />
                   </div>
+                  <LiveHardwareBridge
+                    activeBand={activeBand}
+                    auvDepth={submersible.depth}
+                    layers={activeScenario.layers}
+                  />
                   <div className="flex-1 min-h-[200px]">
                     <PhysicsPanel
                       activeBand={activeBand}
@@ -343,6 +349,11 @@ export function App() {
                       bands={bands}
                     />
                   </div>
+                  <LiveHardwareBridge
+                    activeBand={activeBand}
+                    auvDepth={submersible.depth}
+                    layers={activeScenario.layers}
+                  />
                   <div className="flex-1 min-h-[200px]">
                     <PhysicsPanel
                       activeBand={activeBand}
@@ -387,6 +398,7 @@ export function App() {
                 </div>
               )}
             </div>
+            </div>
           </div>
         )}
       </main>
@@ -418,3 +430,5 @@ export function App() {
     </div>
   );
 }
+
+// EOF: src/App.tsx

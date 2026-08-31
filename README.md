@@ -135,3 +135,5 @@ make flash PORT=/dev/ttyUSB0
 
 ## 📜 License
 MIT License © 2026 Sujay Seeram & AQUAPULSE Contributors.
+
+<!-- EOF: README.md -->

@@ -108,3 +108,5 @@ pnpm dev
 - **`Arrow Keys / Drag`**: Move the AUV Submersible up/down in depth or horizontally across range.
 - **`Auto-Sweep`**: Enable automated channel rolling and sonar pinging.
 - **`Presets Dropdown`**: Switch between predefined ocean profiles (*Deep Pacific Trench, Shallow Isothermal, Strong Thermocline, Arctic Polar Water*).
+
+<!-- EOF: PROJECT_OVERVIEW.md -->

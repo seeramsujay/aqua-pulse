@@ -102,3 +102,5 @@ export default {
   },
   plugins: [],
 }
+
+// EOF: tailwind.config.js

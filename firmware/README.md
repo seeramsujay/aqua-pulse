@@ -18,3 +18,5 @@ Bare-metal C/C++ firmware targeting **STM32H7** or **ESP32-S3** microcontrollers
 - `dma_dac_engine.c`: Hardware timer, DMA stream, and digital windowing lookup tables.
 - `tinyml_policy.cpp`: TFLite Micro INT8 model weights and inference harness.
 - `sensor_adc.c`: 4-channel environmental ADC reader.
+
+<!-- EOF: firmware/README.md -->

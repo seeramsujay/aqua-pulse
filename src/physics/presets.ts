@@ -113,3 +113,5 @@ export const SCENARIO_PRESETS: PresetScenario[] = [
       'Rolling frequency stepped sweeping penetrates beyond the critical angle and de-chirping pinpoints both the halocline layer interface and the underlying slope.'
   }
 ];
+
+// EOF: src/physics/presets.ts
