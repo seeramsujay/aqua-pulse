@@ -49,16 +49,19 @@ export function calculateThorpAttenuation(fKHz: number): number {
 }
 
 /**
- * Transmission Loss (Spherical spreading + Frequency Absorption)
+ * Transmission Loss (Spherical spreading + Frequency Absorption + Turbidity Scattering)
  * r: Total distance traveled in meters
  * fKHz: Frequency in kHz
+ * turbidityNTU: Suspended sediment turbidity in NTU (optional, default 0)
  * Returns: Loss in dB
  */
-export function calculateTransmissionLoss(rMeters: number, fKHz: number): number {
+export function calculateTransmissionLoss(rMeters: number, fKHz: number, turbidityNTU: number = 0): number {
   if (rMeters <= 1) return 0;
   const sphericalSpreading = 20 * Math.log10(rMeters);
   const alpha = calculateThorpAttenuation(fKHz);
-  const absorptionLoss = (alpha * rMeters) / 1000;
+  // Particulate scattering loss in turbid estuaries (excess alpha in dB/km)
+  const turbidityAlpha = turbidityNTU > 0 ? (turbidityNTU / 100) * Math.pow(fKHz / 100, 1.4) * 0.18 : 0;
+  const absorptionLoss = ((alpha + turbidityAlpha) * rMeters) / 1000;
   return sphericalSpreading + absorptionLoss;
 }
 
@@ -108,7 +111,8 @@ export function traceAcousticRay(
   layers: OceanLayer[],
   terrainType: string,
   mode: 'rc-css' | 'traditional-cw',
-  maxDistanceM: number = 3200
+  maxDistanceM: number = 3200,
+  turbidityNTU: number = 0
 ): AcousticRay {
   const segments: RaySegment[] = [];
   const ds = 12; // Step size in meters
@@ -171,7 +175,7 @@ export function traceAcousticRay(
       currZ = seafloorZ;
 
       // Transmission loss computation
-      const tlOneWay = calculateTransmissionLoss(totalDistance, freqKHz);
+      const tlOneWay = calculateTransmissionLoss(totalDistance, freqKHz, turbidityNTU);
       const tlTwoWay = tlOneWay * 2;
       const receivedSnr = sourceLevelDb - tlTwoWay - ambientNoiseDb + processingGainDb;
 
@@ -231,7 +235,7 @@ export function traceAcousticRay(
       isLostInShadow = true;
     }
 
-    const currentTL = calculateTransmissionLoss(totalDistance, freqKHz);
+    const currentTL = calculateTransmissionLoss(totalDistance, freqKHz, turbidityNTU);
     if (currentTL > maxAllowableTL * 1.4) {
       // Ray dissipated completely
       segments.push({

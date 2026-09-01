@@ -12,6 +12,7 @@ interface OceanCanvasProps {
   onEchoDetected: (echo: EchoReturn) => void;
   onSoundingPoint: (point: BathymetryPoint) => void;
   isAutoPinging: boolean;
+  turbidity?: number;
 }
 
 interface OceanParticle {
@@ -33,12 +34,13 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
   activeBand,
   onEchoDetected,
   onSoundingPoint,
-  isAutoPinging
+  isAutoPinging,
+  turbidity = 12.0
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [rays, setRays] = useState<AcousticRay[]>([]);
   const [isDraggingAuv, setIsDraggingAuv] = useState(false);
-  const [, setPingWaveRadius] = useState<number[]>([]);
+  const pingWaveRadiiRef = useRef<number[]>([]);
   const animationFrameRef = useRef<number | null>(null);
   const particlesRef = useRef<OceanParticle[]>([]);
 
@@ -93,7 +95,9 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
           activeBand,
           layers,
           terrainType,
-          'rc-css'
+          'rc-css',
+          3200,
+          turbidity
         );
         newRays.push(ray);
       }
@@ -110,14 +114,16 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
           null,
           layers,
           terrainType,
-          'traditional-cw'
+          'traditional-cw',
+          3200,
+          turbidity
         );
         newRays.push(ray);
       }
     }
 
     setRays(newRays);
-    setPingWaveRadius((prev) => [...prev, 5]);
+    pingWaveRadiiRef.current.push(5);
 
     // Update status
     setSubmersible((prev: Submersible) => ({ ...prev, status: 'transmitting', pingActive: true }));
@@ -392,24 +398,22 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
       });
 
       // 7. Draw Expanding Acoustic Ping Wavefronts
-      setPingWaveRadius((prevRadii) => {
-        return prevRadii
-          .map((r) => r + 4)
-          .filter((r) => {
-            const auvX = scaleX(submersible.x);
-            const auvY = scaleY(submersible.depth);
+      pingWaveRadiiRef.current = pingWaveRadiiRef.current
+        .map((r) => r + 4)
+        .filter((r) => {
+          const auvX = scaleX(submersible.x);
+          const auvY = scaleY(submersible.depth);
 
-            ctx.strokeStyle = activeBand.color;
-            ctx.lineWidth = Math.max(0.5, 2.5 - r / 70);
-            ctx.globalAlpha = Math.max(0, 1 - r / 220);
-            ctx.beginPath();
-            ctx.arc(auvX, auvY, r, 0, Math.PI * 2);
-            ctx.stroke();
-            ctx.globalAlpha = 1.0;
+          ctx.strokeStyle = activeBand.color;
+          ctx.lineWidth = Math.max(0.5, 3 - r / 60);
+          ctx.globalAlpha = Math.max(0, 1 - r / 220);
+          ctx.beginPath();
+          ctx.arc(auvX, auvY, r, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.globalAlpha = 1.0;
 
-            return r < 220;
-          });
-      });
+          return r < 220;
+        });
 
       // 8. Draw AUV / Unmanned Submersible Vehicle
       const auvCanvasX = scaleX(submersible.x);
