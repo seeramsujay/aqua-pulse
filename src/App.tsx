@@ -123,8 +123,8 @@ export function App() {
     setTimeout(() => setPingFlash(false), 200);
     addMissionEvent({
       type: 'PING',
-      title: `Pulse Emitted (${activeBand.label || activeBand.name})`,
-      details: `Carrier ${activeBand.fCenter} kHz · Beam ${submersible.beamSpreadDeg}° · Depth ${submersible.depth.toFixed(1)}m`
+      title: `Pulse Emitted (${activeBand.name})`,
+      details: `Carrier ${((activeBand.fStart + activeBand.fEnd) / 2).toFixed(0)} kHz · Beam ${submersible.beamSpreadDeg}° · Depth ${submersible.depth.toFixed(1)}m`
     });
   }, [isAudioEnabled, activeBand, submersible.beamSpreadDeg, submersible.depth, addMissionEvent]);
 
@@ -167,12 +167,12 @@ export function App() {
         const top = returnArray.reduce((max, r) => (r.snrDb > max.snrDb ? r : max), returnArray[0]);
         if (top.snrDb > 8) {
           if (isAudioEnabled) {
-            sonarAudio.playEchoReturn(top.rangeM * 0.5, top.snrDb);
+            sonarAudio.playEchoReturn(top.calculatedDepthM * 0.5, top.snrDb);
           }
           addMissionEvent({
-            type: 'ECHO',
-            title: `Bottom Acoustic Return Locked (${top.targetType?.toUpperCase() || 'SEABED'})`,
-            details: `Range: ${top.rangeM.toFixed(1)}m · SNR: +${top.snrDb.toFixed(1)} dB · Doppler: ${top.dopplerShiftHz >= 0 ? '+' : ''}${top.dopplerShiftHz.toFixed(1)} Hz`
+            type: 'ECHO_LOCK',
+            title: `Bottom Acoustic Return Locked (${top.reason?.toUpperCase() || 'SEABED'})`,
+            details: `Depth: ${top.calculatedDepthM.toFixed(1)}m · SNR: +${top.snrDb.toFixed(1)} dB · Time: ${top.travelTimeMs.toFixed(1)}ms`
           });
         }
       }
