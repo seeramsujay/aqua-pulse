@@ -7,6 +7,7 @@ import asyncio
 import json
 import time
 from typing import Dict, Any, List, Optional
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -17,21 +18,6 @@ from database import (
 )
 from rag_engine import rag_engine
 from simulator import simulator
-
-app = FastAPI(
-    title="AQUAPULSE Ground Station Backend",
-    version="2.0.0",
-    description="SIH26058 MoES/NIOT Cognitive Acoustic Sonar Ground Station API"
-)
-
-# Enable CORS for Frontend Ground Station
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 # Active WebSocket Clients
 class ConnectionManager:
@@ -55,7 +41,6 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 
-# Background Telemetry Stream Task
 background_sim_task: Optional[asyncio.Task] = None
 is_streaming = True
 
@@ -65,7 +50,6 @@ async def telemetry_stream_worker():
         if is_streaming:
             data = simulator.step()
             
-            # Persist to database
             insert_telemetry({
                 "timestamp": data["ts"],
                 "turbidity_ntu": data["turb"],
@@ -109,20 +93,32 @@ async def telemetry_stream_worker():
                 "frequency_khz": (data["f0"] + data["f1"]) / 2000.0
             })
 
-            # Broadcast over WebSockets
             await manager.broadcast(json.dumps(data))
         await asyncio.sleep(0.2)
 
-@app.on_event("startup")
-async def startup_event():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     init_db()
     global background_sim_task
     background_sim_task = asyncio.create_task(telemetry_stream_worker())
-
-@app.on_event("shutdown")
-async def shutdown_event():
+    yield
     if background_sim_task:
         background_sim_task.cancel()
+
+app = FastAPI(
+    title="AQUAPULSE Ground Station Backend",
+    version="2.0.0",
+    description="SIH26058 MoES/NIOT Cognitive Acoustic Sonar Ground Station API",
+    lifespan=lifespan
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # --- REST Endpoints ---
 
@@ -172,7 +168,7 @@ class RAGQueryRequest(BaseModel):
 
 @app.post("/api/rag/explain")
 def query_rag_explanation(req: RAGQueryRequest):
-    telemetry_dict = req.dict()
+    telemetry_dict = req.model_dump()
     explanation = rag_engine.evaluate_mission_rationale(telemetry_dict, req.channel_id)
     log_mission_event(
         event_type="CHANNEL_ADAPTATION",
@@ -183,7 +179,7 @@ def query_rag_explanation(req: RAGQueryRequest):
     return explanation
 
 class ControlCommand(BaseModel):
-    command: str # "PING", "SET_CHANNEL", "SET_STREAMING"
+    command: str
     value: Optional[Any] = None
 
 @app.post("/api/control")
@@ -204,7 +200,6 @@ async def websocket_telemetry_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
     try:
         while True:
-            # Handle inbound commands from frontend
             data_text = await websocket.receive_text()
             try:
                 msg = json.loads(data_text)

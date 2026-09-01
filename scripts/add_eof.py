@@ -9,16 +9,30 @@ import os
 from pathlib import Path
 
 EXT_MAP = {
+    '.c': 'c',
+    '.cpp': 'c',
+    '.h': 'c',
+    '.hpp': 'c',
+    '.py': 'py',
+    '.sh': 'py',
+    '.ts': 'ts',
+    '.tsx': 'ts',
+    '.js': 'ts',
+    '.jsx': 'ts',
+    '.css': 'c',
+    '.md': 'md',
+    '.cir': 'cir'
 }
 
 IGNORE_DIRS = {'.git', 'node_modules', '.venv', 'dist', 'dist-ssr', '__pycache__', 'scratch'}
 
 def format_eof_comment(ext: str, rel_path: str) -> str:
-    if ext in ('.c', '.cpp', '.h', '.hpp', '.css'):
-    elif ext in ('.py', '.sh'):
-    elif ext in ('.ts', '.tsx', '.js', '.jsx'):
-    elif ext == '.md':
-    elif ext == '.cir':
+    comment_type = EXT_MAP.get(ext, 'ts')
+    if comment_type == 'c':
+    elif comment_type == 'py':
+    elif comment_type == 'md':
+    elif comment_type == 'cir':
+    else:
 
 def process_file(filepath: Path, base_dir: Path) -> bool:
     ext = filepath.suffix.lower()

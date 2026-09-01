@@ -70,7 +70,7 @@ class OceanographicRAGEngine:
         theta0_rad = math.radians(launch_angle_deg)
         cos_theta1 = (math.cos(theta0_rad) / c0) * c_target
         if cos_theta1 > 1.0 or cos_theta1 < -1.0:
-            return 90.0 # Total internal reflection / critical angle
+            return 90.0
         return math.degrees(math.acos(cos_theta1))
 
     def evaluate_mission_rationale(self, telemetry: Dict[str, Any], chosen_channel: int) -> Dict[str, Any]:
@@ -86,21 +86,21 @@ class OceanographicRAGEngine:
         c = self.compute_mackenzie_sound_speed(temp, salinity, depth)
         
         reasons: List[str] = []
-        rule_applied = None
+        rules_applied: List[str] = []
 
         if turbidity > 150 or depth > 800:
             reasons.append(f"Turbidity level ({turbidity:.1f} NTU) or depth ({depth:.1f} m) creates severe acoustic extinction. Switched to Channel 0 (100-140 kHz) to keep absorption low.")
-            rule_applied = "NIOT-BATHY-01"
+            rules_applied.append("NIOT-BATHY-01")
         elif depth > 200 or temp < 10.0:
             reasons.append(f"Thermocline layer detected (Temp {temp:.1f}°C, Sound Speed {c:.1f} m/s). Using Channel 1 (200-250 kHz) with Blackman-Harris windowing to suppress sidelobes across velocity boundaries.")
-            rule_applied = "NIOT-BATHY-02"
+            rules_applied.append("NIOT-BATHY-02")
         else:
             reasons.append(f"Clear water column profile (Turbidity {turbidity:.1f} NTU, Depth {depth:.1f} m). Channel 2 (400-480 kHz) selected for maximum centimeter-grade bathymetric resolution.")
-            rule_applied = "NIOT-BATHY-03"
+            rules_applied.append("NIOT-BATHY-03")
 
         if battery_v < 11.0:
             reasons.append(f"Battery voltage at {battery_v:.2f}V triggers autonomous power conservation. Transmit amplitude lowered while maintaining detection through pulse compression.")
-            rule_applied = "NIOT-ENERGY-04"
+            rules_applied.append("NIOT-ENERGY-04")
 
         alpha_ch0 = self.compute_thorp_attenuation(120.0)
         alpha_ch1 = self.compute_thorp_attenuation(225.0)
@@ -108,7 +108,7 @@ class OceanographicRAGEngine:
 
         return {
             "sound_speed_mps": c,
-            "rule_id": rule_applied,
+            "rule_id": ", ".join(rules_applied),
             "explanation": " ".join(reasons),
             "attenuation_table_db_km": {
                 "ch0_120khz": alpha_ch0,

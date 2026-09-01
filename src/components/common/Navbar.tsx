@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { SonarMode, PresetScenario } from '../../types/sonar';
-import { Radio, Layers, BookOpen, Play, Pause, Activity, Sparkles, Wifi, Cpu, Terminal } from 'lucide-react';
+import { Radio, Layers, BookOpen, Play, Pause, Activity, Sparkles, Wifi, Cpu, Terminal, Bot, Volume2, VolumeX } from 'lucide-react';
 
 interface NavbarProps {
   mode: SonarMode;
@@ -12,6 +12,9 @@ interface NavbarProps {
   setIsAutoPinging: (val: boolean) => void;
   onOpenTheory: () => void;
   onOpenBoot?: () => void;
+  onOpenRag?: () => void;
+  isAudioEnabled?: boolean;
+  setIsAudioEnabled?: (val: boolean) => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -23,7 +26,10 @@ export const Navbar: React.FC<NavbarProps> = ({
   isAutoPinging,
   setIsAutoPinging,
   onOpenTheory,
-  onOpenBoot
+  onOpenBoot,
+  onOpenRag,
+  isAudioEnabled,
+  setIsAudioEnabled,
 }) => {
   const [time, setTime] = useState(new Date());
 
@@ -143,6 +149,21 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         {/* ── Actions & Status ── */}
         <div className="flex items-center gap-2">
+          {/* Audio toggle */}
+          {setIsAudioEnabled && (
+            <button
+              onClick={() => setIsAudioEnabled(!isAudioEnabled)}
+              className={`p-1.5 rounded-lg border text-xs font-mono transition-all flex items-center space-x-1 ${
+                isAudioEnabled
+                  ? 'bg-cyan-950/70 text-cyan-300 border-cyan-700/60 shadow-[0_0_8px_rgba(0,240,255,0.2)]'
+                  : 'text-slate-500 border-white/[0.08] bg-black/30 hover:text-slate-300'
+              }`}
+              title={isAudioEnabled ? 'Mute Sonar Audio' : 'Enable Down-converted Sonar Audio'}
+            >
+              {isAudioEnabled ? <Volume2 className="w-3.5 h-3.5 text-cyan-400" /> : <VolumeX className="w-3.5 h-3.5" />}
+            </button>
+          )}
+
           {/* Auto-sweep toggle */}
           <button
             id="auto-sweep-btn"
@@ -159,6 +180,18 @@ export const Navbar: React.FC<NavbarProps> = ({
               <><Play className="w-3 h-3" /><span className="hidden sm:inline">AUTO-SWEEP</span><span className="sm:hidden">PING</span></>
             )}
           </button>
+
+          {/* RAG assistant button */}
+          {onOpenRag && (
+            <button
+              onClick={onOpenRag}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-mono font-semibold text-cyan-300 border border-cyan-700/50 bg-cyan-950/50 hover:bg-cyan-900/60 hover:border-cyan-500/60 transition-all duration-200"
+              title="Ask MoES/NIOT RAG Assistant"
+            >
+              <Bot className="w-3.5 h-3.5 text-cyan-400" />
+              <span className="hidden lg:inline">RAG AGENT</span>
+            </button>
+          )}
 
           {/* Theory guide */}
           <button
@@ -221,3 +254,4 @@ export const Navbar: React.FC<NavbarProps> = ({
 };
 
 // EOF: src/components/common/Navbar.tsx
+

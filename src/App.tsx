@@ -14,8 +14,15 @@ import { PulseCompressionChart } from './components/telemetry/PulseCompressionCh
 import { AbsorptionCurve } from './components/telemetry/AbsorptionCurve';
 import { MissionLog, MissionEvent } from './components/telemetry/MissionLog';
 import { LiveHardwareBridge } from './components/telemetry/LiveHardwareBridge';
+import { EnvironmentalInjector } from './components/telemetry/EnvironmentalInjector';
 import { AcousticTheoryModal } from './components/common/AcousticTheoryModal';
+<<<<<<< HEAD
 import { Compass, Navigation, Signal, Activity, Cpu, Terminal } from 'lucide-react';
+=======
+import { RagAssistantModal } from './components/common/RagAssistantModal';
+import { sonarAudio } from './utils/audioSonar';
+import { Compass } from 'lucide-react';
+>>>>>>> c87a173 (feat(software-enhancements): add audio sonar feedback, fault injection panel, RAG assistant chat, GIS CSV export, and full test suites)
 
 export function App() {
   const [isBooting, setIsBooting] = useState<boolean>(true);
@@ -27,8 +34,19 @@ export function App() {
   const [autoRoll, setAutoRoll] = useState<boolean>(true);
   const [isAutoPinging, setIsAutoPinging] = useState<boolean>(false);
   const [isTheoryOpen, setIsTheoryOpen] = useState<boolean>(false);
+<<<<<<< HEAD
   const [pingFlash, setPingFlash] = useState(false);
   const [telemetryTab, setTelemetryTab] = useState<'SIGNAL' | 'DSP' | 'LOG'>('SIGNAL');
+=======
+  const [isRagOpen, setIsRagOpen] = useState<boolean>(false);
+  const [isAudioEnabled, setIsAudioEnabled] = useState<boolean>(true);
+
+  // Environmental Knobs State
+  const [turbidity, setTurbidity] = useState<number>(12.0);
+  const [temperature, setTemperature] = useState<number>(18.0);
+  const [salinity, setSalinity] = useState<number>(35.0);
+  const [batteryV, setBatteryV] = useState<number>(12.6);
+>>>>>>> c87a173 (feat(software-enhancements): add audio sonar feedback, fault injection panel, RAG assistant chat, GIS CSV export, and full test suites)
 
   const [submersible, setSubmersible] = useState<Submersible>({
     x: 450,
@@ -75,6 +93,18 @@ export function App() {
     });
   };
 
+<<<<<<< HEAD
+=======
+  // Reset environmental parameters to nominal
+  const handleResetEnvironment = () => {
+    setTurbidity(12.0);
+    setTemperature(18.0);
+    setSalinity(35.0);
+    setBatteryV(12.6);
+  };
+
+  // Echo and sounding handlers
+>>>>>>> c87a173 (feat(software-enhancements): add audio sonar feedback, fault injection panel, RAG assistant chat, GIS CSV export, and full test suites)
   const handleEchoDetected = useCallback(
     (echo: EchoReturn) => {
       setEchoes((prev) => [...prev.slice(-40), echo]);
@@ -95,6 +125,15 @@ export function App() {
         });
       }
 
+<<<<<<< HEAD
+=======
+      // Play audio feedback for echo return
+      if (isAudioEnabled && echo.success) {
+        sonarAudio.playEchoReturn(echo.travelTimeMs * 0.3, echo.snrDb);
+      }
+
+      // If auto-roll is enabled and in RC-CSS mode, roll to next band
+>>>>>>> c87a173 (feat(software-enhancements): add audio sonar feedback, fault injection panel, RAG assistant chat, GIS CSV export, and full test suites)
       if (autoRoll && mode === 'rc-css') {
         setActiveBandIndex((prev) => {
           const nextIdx = (prev + 1) % bands.length;
@@ -107,7 +146,11 @@ export function App() {
         });
       }
     },
+<<<<<<< HEAD
     [autoRoll, mode, bands, addMissionEvent]
+=======
+    [autoRoll, mode, bands.length, isAudioEnabled]
+>>>>>>> c87a173 (feat(software-enhancements): add audio sonar feedback, fault injection panel, RAG assistant chat, GIS CSV export, and full test suites)
   );
 
   const handleSoundingPoint = useCallback((point: BathymetryPoint) => {
@@ -117,11 +160,23 @@ export function App() {
     });
   }, []);
 
+<<<<<<< HEAD
+=======
+  // Audio chirp feedback on ping trigger
+  const triggerPingWithAudio = useCallback(() => {
+    if (isAudioEnabled) {
+      sonarAudio.playChirp(activeBand.fStart, activeBand.fEnd, activeBand.durationMs);
+    }
+    setSubmersible((prev) => ({ ...prev, pingActive: true }));
+  }, [isAudioEnabled, activeBand]);
+
+  // Keyboard shortcut listener (Space = ping, Arrows = steer AUV)
+>>>>>>> c87a173 (feat(software-enhancements): add audio sonar feedback, fault injection panel, RAG assistant chat, GIS CSV export, and full test suites)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.code === 'Space') {
         e.preventDefault();
-        setSubmersible((prev) => ({ ...prev, pingActive: true }));
+        triggerPingWithAudio();
       } else if (e.code === 'ArrowRight') {
         setSubmersible((prev) => ({ ...prev, x: Math.min(1900, prev.x + 30) }));
       } else if (e.code === 'ArrowLeft') {
@@ -134,7 +189,7 @@ export function App() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [triggerPingWithAudio]);
 
   return (
     <div className="min-h-screen text-slate-100 flex flex-col font-sans" style={{ background: '#020612' }}>
@@ -151,7 +206,13 @@ export function App() {
         isAutoPinging={isAutoPinging}
         setIsAutoPinging={setIsAutoPinging}
         onOpenTheory={() => setIsTheoryOpen(true)}
+<<<<<<< HEAD
         onOpenBoot={() => setIsBooting(true)}
+=======
+        onOpenRag={() => setIsRagOpen(true)}
+        isAudioEnabled={isAudioEnabled}
+        setIsAudioEnabled={setIsAudioEnabled}
+>>>>>>> c87a173 (feat(software-enhancements): add audio sonar feedback, fault injection panel, RAG assistant chat, GIS CSV export, and full test suites)
       />
 
       {/* Auto-sweep status ribbon */}
@@ -252,6 +313,7 @@ export function App() {
               </div>
             </div>
 
+<<<<<<< HEAD
             {/* Right: Tabbed Telemetry & DSP Analysis Column */}
             <div className="lg:col-span-4 flex flex-col gap-3">
               {/* Telemetry Tab Switcher Bar */}
@@ -332,6 +394,24 @@ export function App() {
                   </div>
                 </div>
               )}
+=======
+            {/* Right Column: Telemetry, SSP & Spectrogram Waterfall (4 Cols) */}
+            <div className="lg:col-span-4 flex flex-col gap-4">
+              {/* Sound Speed Profile (SSP) Chart */}
+              <div className="h-[260px]">
+                <SoundSpeedProfile layers={activeScenario.layers} auvDepth={submersible.depth} />
+              </div>
+
+              {/* Spectrogram & De-Chirp Waterfall */}
+              <div className="h-[220px]">
+                <SpectrogramWaterfall
+                  echoes={echoes}
+                  activeBand={activeBand}
+                  mode={mode}
+                  isPinging={submersible.pingActive}
+                />
+              </div>
+>>>>>>> c87a173 (feat(software-enhancements): add audio sonar feedback, fault injection panel, RAG assistant chat, GIS CSV export, and full test suites)
 
               {telemetryTab === 'DSP' && (
                 <div className="flex flex-col gap-3 flex-1">
@@ -372,6 +452,7 @@ export function App() {
                 </div>
               )}
 
+<<<<<<< HEAD
               {telemetryTab === 'LOG' && (
                 <div className="flex flex-col gap-3 flex-1">
                   <div className="h-[360px]">
@@ -398,6 +479,37 @@ export function App() {
                 </div>
               )}
             </div>
+=======
+              {/* Environmental Sensor & Fault Injector */}
+              <EnvironmentalInjector
+                turbidity={turbidity}
+                setTurbidity={setTurbidity}
+                temperature={temperature}
+                setTemperature={setTemperature}
+                salinity={salinity}
+                setSalinity={setSalinity}
+                batteryV={batteryV}
+                setBatteryV={setBatteryV}
+                onReset={handleResetEnvironment}
+              />
+
+              {/* Acoustic Physics & Stepped Rolling Controller */}
+              <div className="min-h-[220px]">
+                <PhysicsPanel
+                  activeBand={activeBand}
+                  setActiveBand={(band) => {
+                    const idx = bands.findIndex((b) => b.id === band.id);
+                    if (idx !== -1) setActiveBandIndex(idx);
+                  }}
+                  bands={bands}
+                  mode={mode}
+                  submersible={submersible}
+                  layers={activeScenario.layers}
+                  autoRoll={autoRoll}
+                  setAutoRoll={setAutoRoll}
+                />
+              </div>
+>>>>>>> c87a173 (feat(software-enhancements): add audio sonar feedback, fault injection panel, RAG assistant chat, GIS CSV export, and full test suites)
             </div>
           </div>
         )}
@@ -427,6 +539,9 @@ export function App() {
       </footer>
 
       <AcousticTheoryModal isOpen={isTheoryOpen} onClose={() => setIsTheoryOpen(false)} />
+
+      {/* MoES / NIOT Agentic RAG Assistant Modal */}
+      <RagAssistantModal isOpen={isRagOpen} onClose={() => setIsRagOpen(false)} />
     </div>
   );
 }

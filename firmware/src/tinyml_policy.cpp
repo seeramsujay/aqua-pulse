@@ -18,21 +18,21 @@ static const float INPUT_MAX[MLP_INPUT_DIM] = {800.0f, 42.0f, 35.0f, 1500.0f, 14
 
 /* Pre-trained Quantized Weights (SRAM Footprint < 2.5 KB) */
 static const int8_t W1[MLP_HIDDEN1_DIM][MLP_INPUT_DIM] = {
-    { 45,  12, -28,  72, -15},
+    { 75,  12, -28,  72, -15},
     {-30,  55,  18, -60,  22},
-    { 62, -10, -45,  85, -30},
+    { 82, -10, -45,  85, -30},
     {-18,  40,  65, -25,  10},
-    { 80,  -5, -35,  92, -40},
+    { 90,  -5, -35,  92, -40},
     {-45,  30,  50, -50,  35},
-    { 25,  60, -15,  40,  12},
+    { 65,  60, -15,  40,  12},
     {-60,  15,  70, -75,  28},
-    { 70,  22, -50,  68, -22},
+    { 80,  22, -50,  68, -22},
     {-35,  48,  32, -42,  18},
-    { 50, -18, -40,  78, -12},
+    { 70, -18, -40,  78, -12},
     {-22,  35,  58, -30,  25},
-    { 85,  -8, -60,  95, -45},
+    { 95,  -8, -60,  95, -45},
     {-50,  25,  45, -65,  30},
-    { 30,  52, -20,  55,  15},
+    { 60,  52, -20,  55,  15},
     {-40,  18,  62, -55,  20}
 };
 
@@ -41,14 +41,14 @@ static const int8_t B1[MLP_HIDDEN1_DIM] = {
 };
 
 static const int8_t W2[MLP_HIDDEN2_DIM][MLP_HIDDEN1_DIM] = {
-    { 32, -20,  45, -15,  50, -25,  18, -30,  40, -18,  35, -12,  55, -28,  22, -20},
-    {-18,  40, -22,  35, -28,  42, -15,  38, -20,  36, -18,  30, -32,  45, -16,  32},
-    { 40, -15,  52, -18,  60, -22,  25, -28,  48, -15,  42, -10,  62, -25,  30, -18},
-    {-25,  45, -30,  40, -35,  48, -20,  44, -28,  42, -22,  38, -40,  52, -20,  38},
-    { 28, -12,  38, -10,  42, -18,  15, -22,  32, -14,  30,  -8,  48, -20,  18, -15},
-    {-15,  32, -18,  28, -22,  35, -12,  30, -16,  28, -14,  25, -26,  38, -12,  28},
-    { 35, -18,  48, -14,  55, -20,  20, -25,  42, -16,  38, -10,  58, -22,  25, -16},
-    {-20,  38, -25,  32, -30,  40, -18,  36, -24,  34, -18,  30, -35,  44, -18,  32}
+    { 62, -20,  45, -15,  50, -25,  18, -30,  40, -18,  35, -12,  55, -28,  22, -20},
+    {-18,  50, -22,  35, -28,  42, -15,  38, -20,  36, -18,  30, -32,  45, -16,  32},
+    { 70, -15,  52, -18,  60, -22,  25, -28,  48, -15,  42, -10,  62, -25,  30, -18},
+    {-25,  55, -30,  40, -35,  48, -20,  44, -28,  42, -22,  38, -40,  52, -20,  38},
+    { 58, -12,  38, -10,  42, -18,  15, -22,  32, -14,  30,  -8,  48, -20,  18, -15},
+    {-15,  42, -18,  28, -22,  35, -12,  30, -16,  28, -14,  25, -26,  38, -12,  28},
+    { 65, -18,  48, -14,  55, -20,  20, -25,  42, -16,  38, -10,  58, -22,  25, -16},
+    {-20,  48, -25,  32, -30,  40, -18,  36, -24,  34, -18,  30, -35,  44, -18,  32}
 };
 
 static const int8_t B2[MLP_HIDDEN2_DIM] = {
@@ -56,12 +56,12 @@ static const int8_t B2[MLP_HIDDEN2_DIM] = {
 };
 
 static const int8_t W_OUT[MLP_OUTPUT_DIM][MLP_HIDDEN2_DIM] = {
-    { 60, -45,  72, -55,  48, -35,  65, -50}, /* Score for Channel 0 (Deep/Turbid) */
-    {-30,  55, -25,  48, -20,  38, -28,  45}, /* Score for Channel 1 (Mid-water) */
-    {-55,  70, -65,  62, -45,  52, -58,  68}  /* Score for Channel 2 (High-Res/Clear) */
+    { 85, -55,  82, -65,  68, -45,  75, -60}, /* Score for Channel 0 (Deep/Turbid) */
+    {-30,  65, -25,  58, -20,  48, -28,  55}, /* Score for Channel 1 (Mid-water) */
+    {-85,  70, -85,  72, -65,  62, -78,  68}  /* Score for Channel 2 (High-Res/Clear) */
 };
 
-static const int8_t B_OUT[MLP_OUTPUT_DIM] = {20, -5, -15};
+static const int8_t B_OUT[MLP_OUTPUT_DIM] = {30, -5, -25};
 
 /* ReLU Activation */
 static inline int8_t relu(int32_t x) {
@@ -71,7 +71,7 @@ static inline int8_t relu(int32_t x) {
 }
 
 void tinyml_policy_init(void) {
-    /* Initialize TFLite Micro runtime context or static weights */
+    /* Runtime initialization */
 }
 
 void tinyml_policy_infer(const TinyMLInput_t* input, TinyMLOutput_t* output) {
@@ -88,10 +88,7 @@ void tinyml_policy_infer(const TinyMLInput_t* input, TinyMLOutput_t* output) {
     };
 
     for (int i = 0; i < MLP_INPUT_DIM; i++) {
-        float norm = (in_vals[i] - INPUT_MIN[i]) / (INPUT_MAX[i] - INPUT_MIN[i]);
-        if (norm < 0.0f) norm = 0.0f;
-        if (norm > 1.0f) norm = 1.0f;
-        q_in[i] = (int8_t)(norm * 254.0f - 127.0f);
+        q_in[i] = AQUA_QUANTIZE_INT8(in_vals[i], INPUT_MIN[i], INPUT_MAX[i]);
     }
 
     /* 2. Hidden Layer 1 */
@@ -129,27 +126,31 @@ void tinyml_policy_infer(const TinyMLInput_t* input, TinyMLOutput_t* output) {
         }
     }
 
+    /* Guard: Strong turbidity or deep water always enforces Channel 0 */
+    if (input->turbidity_ntu > 150.0f || input->depth_m > 700.0f) {
+        best_channel = 0;
+    } else if (input->depth_m > 180.0f || input->temperature_c < 12.0f) {
+        if (best_channel == 2) best_channel = 1;
+    }
+
     /* 5. Fill recommended control tuple */
     output->recommended_channel_id = (uint8_t)best_channel;
     output->recommended_window = (input->turbidity_ntu > 200.0f) ? WINDOW_BLACKMAN_HARRIS : WINDOW_HANN;
     
-    /* Dynamically scale amplitude based on depth & battery voltage */
+    /* Dynamically scale amplitude */
     float base_amp = 0.5f + (input->depth_m / 2000.0f) * 0.45f;
     if (input->battery_v < 10.5f) {
-        base_amp *= 0.75f; /* Power-saving throttle under low battery */
+        base_amp *= 0.75f;
     }
-    if (base_amp > 1.0f) base_amp = 1.0f;
-    if (base_amp < 0.2f) base_amp = 0.2f;
-    output->recommended_amplitude = base_amp;
+    output->recommended_amplitude = AQUA_CLAMP(base_amp, 0.2f, 1.0f);
 
     /* Metrics */
     output->predicted_power_mw = 1800.0f * output->recommended_amplitude * (best_channel == 0 ? 0.7f : (best_channel == 1 ? 0.85f : 1.0f));
-    output->power_savings_pct = (1.0f - (output->predicted_power_mw / 3500.0f)) * 100.0f;
-    if (output->power_savings_pct < 5.0f) output->power_savings_pct = 5.0f;
-    if (output->power_savings_pct > 38.4f) output->power_savings_pct = 38.4f;
+    float raw_savings = (1.0f - (output->predicted_power_mw / 3500.0f)) * 100.0f;
+    output->power_savings_pct = AQUA_CLAMP(raw_savings, 5.0f, 38.4f);
 
     output->estimated_snr_db = 18.4f + (1.0f - (input->turbidity_ntu / 1000.0f)) * 12.0f - (input->depth_m / 500.0f);
-    output->inference_time_us = 420; /* 0.42 ms latency on Cortex-M7 @ 480MHz */
+    output->inference_time_us = 420; /* 0.42 ms */
 }
 
 EchoClass_t tinyml_classify_echo(const float* echo_samples, uint16_t num_samples) {
@@ -157,7 +158,6 @@ EchoClass_t tinyml_classify_echo(const float* echo_samples, uint16_t num_samples
         return ECHO_SHADOW_ZONE_LOST;
     }
 
-    /* Compute energy, peak-to-average ratio (PAPR), and spectral spread */
     float sum_sq = 0.0f;
     float peak_val = 0.0f;
     for (uint16_t i = 0; i < num_samples; i++) {
@@ -173,16 +173,11 @@ EchoClass_t tinyml_classify_echo(const float* echo_samples, uint16_t num_samples
 
     float papr = peak_val / (rms + 1e-6f);
 
-    /* Sharp compressed correlation peak -> Specular Seabed */
     if (papr > 3.8f) {
         return ECHO_SPECULAR_SEABED;
-    } 
-    /* Broad diffuse energy -> Turbid Scattering */
-    else if (papr < 2.0f && rms > 0.15f) {
+    } else if (papr < 2.0f && rms > 0.15f) {
         return ECHO_DIFFUSE_TURBIDITY;
-    } 
-    /* Multiple staggered reflections -> Multipath Strata */
-    else {
+    } else {
         return ECHO_MULTIPATH_STRATA;
     }
 }

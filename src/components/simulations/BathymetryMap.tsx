@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { BathymetryPoint } from '../../types/sonar';
 import { getSeafloorDepth } from '../../physics/oceanAcoustics';
-import { Map } from 'lucide-react';
+import { Map, Download, Trash2 } from 'lucide-react';
 import { useAnimatedValue } from '../../hooks/useAnimatedValue';
 
 interface BathymetryMapProps {
@@ -74,6 +74,27 @@ export const BathymetryMap: React.FC<BathymetryMapProps> = ({ soundings, terrain
   const animConfidence = useAnimatedValue(stats.avgConfidence, 250, 0);
   const animRms = useAnimatedValue(stats.rmsErrorM, 250, 1);
 
+  // Export surveyed soundings as CSV / XYZ dataset
+  const handleExportCSV = () => {
+    if (soundings.length === 0) return;
+    const header = 'X_East_m,Y_North_m,Depth_Z_m,Confidence_pct,Frequency_kHz,Timestamp_ms\n';
+    const rows = soundings
+      .map(
+        (s) =>
+          `${s.x.toFixed(2)},0.00,${(s.measuredDepth || s.trueDepth).toFixed(2)},${s.confidence.toFixed(
+            1
+          )},${s.frequencyKHz || 120.0},${s.timestamp}`
+      )
+      .join('\n');
+    const blob = new Blob([header + rows], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `aquapulse_bathymetry_${Date.now()}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="glass-panel panel-accent-emerald flex flex-col h-full overflow-hidden">
       {/* Header */}
@@ -95,10 +116,20 @@ export const BathymetryMap: React.FC<BathymetryMapProps> = ({ soundings, terrain
               </span>
             )}
             <button
-              onClick={onClear}
-              className="hud-chip bg-slate-900/70 text-slate-400 border-slate-700/50 hover:text-slate-200 hover:border-slate-600 transition-all cursor-pointer"
+              onClick={handleExportCSV}
+              disabled={soundings.length === 0}
+              className="hud-chip bg-cyan-950/70 text-cyan-300 border-cyan-700/50 hover:bg-cyan-900/60 transition-all flex items-center gap-1 disabled:opacity-40 cursor-pointer"
+              title="Download Bathymetric Point Cloud as CSV / GIS format"
             >
-              RESET
+              <Download className="w-3 h-3" />
+              <span>EXPORT CSV</span>
+            </button>
+            <button
+              onClick={onClear}
+              className="hud-chip bg-slate-900/70 text-slate-400 border-slate-700/50 hover:text-slate-200 hover:border-slate-600 transition-all flex items-center gap-1 cursor-pointer"
+            >
+              <Trash2 className="w-3 h-3" />
+              <span>CLEAR</span>
             </button>
           </div>
         </div>
