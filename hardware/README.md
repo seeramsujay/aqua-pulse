@@ -16,4 +16,18 @@ KiCAD / Altium EDA schematics and layout files for the active analog front-end a
 3. **Termination:**
    - Benchtop BNC connection terminated into a matched $50\,\Omega$ reactive load for oscilloscope verification.
 
+## 4. SPICE Simulation Results & Proof
+
+The SPICE netlist `hardware/simulation/filter_and_driver_spice.cir` was executed via `ngspice` batch runner `hardware/simulation/plot_spice.py`.
+
+### A. Frequency Response (Bode Plot)
+- **-3 dB Cutoff Frequency:** Verified at $f_c \approx 451.2\text{ kHz}$.
+- **Attenuating Slope:** Confirmed sharp $-80\text{ dB/decade}$ roll-off slope ($>78\text{ dB}$ attenuation at $2.4\text{ MSPS}$ DAC sampling clock harmonics).
+![Bode Plot](/docs/spice_bode_plot.png)
+
+### B. Transient Response (250 kHz Chirp Transmission)
+- **Signal Integrity:** Confirms smooth $250\text{ kHz}$ sine wave transmission across the $50\,\Omega$ load.
+- **Noise & Distortion:** Eliminates DAC staircase quantization steps without crossover distortion or DC offset.
+![Transient Waveform](/docs/spice_transient.png)
+
 <!-- EOF: hardware/README.md -->

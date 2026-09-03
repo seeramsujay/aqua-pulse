@@ -21,10 +21,11 @@ C2_2 6 0 220p
 E_OP2 7 0 6 7 100000
 
 * --- Class-AB Push-Pull Output Stage (BD139 / BD140) ---
-RB1 7 8 100
+R_DRV 7 9 100
+RBIAS1 10 8 1.2k
+RBIAS2 11 12 1.2k
 D1  8 9 D1N4148
 D2  9 12 D1N4148
-RB2 12 7 100
 
 * Top Transistor (NPN BD139)
 Q_TOP 10 8 13 QBD139
@@ -45,9 +46,17 @@ R_LOAD 16 0 50
 
 * --- Analysis Directives ---
 .AC DEC 50 10k 10MEG
-.TRAN 10n 20u
+.TRAN 10n 200u 180u
 .PRINT AC VDB(16) VP(16)
 .PRINT TRAN V(16) V(1)
+
+.CONTROL
+ac dec 50 10k 10meg
+wrdata ac_out.txt vdb(16) vp(16)
+tran 10n 200u 180u
+wrdata tran_out.txt v(16) v(1)
+quit
+.ENDC
 
 .END
 

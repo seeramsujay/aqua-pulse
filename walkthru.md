@@ -180,10 +180,11 @@ PYTHONPATH=. .venv/bin/pytest tests/
 
 | Component | Test / Verification Command | Result |
 |:---|:---|:---:|
+| **SPICE Simulation Verification** | `python3 hardware/simulation/plot_spice.py` | **PASSED** (fc=451.2 kHz, -80 dB/dec roll-off, Bode & TRAN exported) |
 | **Firmware Unit Tests** | `make test -C firmware` | **4/4 PASSED** (INT8 Quant, SOF/EOF, Channel Selection) |
 | **Backend Physics Tests** | `pytest backend/tests/test_physics.py` | **5/5 PASSED** (Mackenzie, Thorp, Snell models) |
 | **Backend API Tests** | `pytest backend/tests/test_api.py` | **3/3 PASSED** (REST, Status, RAG explain) |
 | **Frontend Production Build** | `pnpm build` | **PASSED** (1602 modules, 0 TypeScript errors) |
-| **EOF Integrity Engine** | `python3 scripts/add_eof.py` | **52/52 Files Stamped** |
+| **EOF Integrity Engine** | `python3 scripts/add_eof.py` | **53/53 Files Stamped** |
 
 <!-- EOF: walkthru.md -->
