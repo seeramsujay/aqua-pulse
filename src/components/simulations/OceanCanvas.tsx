@@ -13,6 +13,7 @@ interface OceanCanvasProps {
   onSoundingPoint: (point: BathymetryPoint) => void;
   isAutoPinging: boolean;
   turbidity?: number;
+  triggerPingRef?: React.MutableRefObject<(() => void) | null>;
 }
 
 interface OceanParticle {
@@ -35,7 +36,8 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
   onEchoDetected,
   onSoundingPoint,
   isAutoPinging,
-  turbidity = 12.0
+  turbidity = 12.0,
+  triggerPingRef,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [rays, setRays] = useState<AcousticRay[]>([]);
@@ -158,6 +160,12 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
     }, 1400);
   }, [submersible, mode, activeBand, layers, terrainType, onEchoDetected, onSoundingPoint, setSubmersible]);
 
+  useEffect(() => {
+    if (triggerPingRef) {
+      triggerPingRef.current = triggerPing;
+    }
+  }, [triggerPing, triggerPingRef]);
+
   // Handle manual ping on space or prop change
   useEffect(() => {
     if (submersible.pingActive && rays.length === 0) {
@@ -194,7 +202,7 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
       const unscaleX = (px: number) => (px / w) * WORLD_WIDTH_M;
 
       // Clear Canvas
-      ctx.fillStyle = '#020612';
+      ctx.fillStyle = '#071018';
       ctx.fillRect(0, 0, w, h);
 
       // 1. Draw Stratified Ocean Water Column with Depth Gradients
@@ -561,53 +569,23 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
     setIsDraggingAuv(false);
   };
 
+  const currentSoundSpeed = getOceanPropertiesAtDepth(layers, submersible.depth).soundSpeed;
+
   return (
-    <div className="relative w-full h-full bg-[#020612] rounded-xl overflow-hidden border border-slate-800 shadow-2xl flex flex-col">
-      {/* Viewport Header Controls Overlay */}
-      <div className="absolute top-3 left-4 right-4 z-10 flex flex-wrap items-center justify-between gap-3 bg-slate-900/85 backdrop-blur-md px-4 py-2.5 rounded-lg border border-slate-700/60 shadow-lg">
-        <div className="flex items-center space-x-3">
-          <div className="flex items-center space-x-2">
-            <span className="relative flex h-3 w-3">
-              <span
-                className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
-                  submersible.pingActive ? 'bg-cyan-400' : 'bg-emerald-400'
-                }`}
-              />
-              <span
-                className={`relative inline-flex rounded-full h-3 w-3 ${
-                  submersible.pingActive ? 'bg-cyan-500' : 'bg-emerald-500'
-                }`}
-              />
-            </span>
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-200 font-mono">
-              {mode === 'rc-css' ? 'Rolling-Channel CSS' : 'Traditional CW Ping'}
-            </span>
-          </div>
-
-          <span className="text-slate-600">|</span>
-
-          <div className="text-xs text-slate-300 font-mono">
-            <span className="text-slate-400">Band:</span>{' '}
-            <span style={{ color: activeBand.color }} className="font-bold">
-              {mode === 'rc-css' ? `${activeBand.name} (${activeBand.fStart}-${activeBand.fEnd} kHz)` : 'Fixed 450 kHz CW Tone'}
-            </span>
-          </div>
-        </div>
-
-        <div className="flex items-center space-x-2">
-          <button
-            onClick={triggerPing}
-            disabled={submersible.pingActive}
-            className={`px-4 py-1.5 rounded-md text-xs font-bold font-mono tracking-wide transition-all shadow-md flex items-center space-x-1.5 ${
-              submersible.pingActive
-                ? 'bg-slate-700 text-slate-400 cursor-not-allowed'
-                : 'bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 hover:shadow-cyan-500/25 active:scale-95'
-            }`}
-          >
-            <span>TRANSMIT PING</span>
-            <kbd className="bg-slate-950/40 text-slate-200 px-1 py-0.5 rounded text-[10px]">SPACE</kbd>
-          </button>
-        </div>
+    <div
+      className="relative w-full h-full overflow-hidden flex flex-col"
+      style={{
+        background: '#071018',
+        borderRadius: '6px',
+        border: '1px solid #20333D',
+      }}
+    >
+      {/* Top right in-situ sound speed readout */}
+      <div
+        className="absolute top-3 right-4 z-10 font-mono text-[11px] pointer-events-none"
+        style={{ color: '#43C7D9' }}
+      >
+        c(z) = {currentSoundSpeed.toFixed(1)} m/s
       </div>
 
       {/* Main Canvas Viewport */}
@@ -622,24 +600,28 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
         className="w-full h-full cursor-crosshair select-none"
       />
 
-      {/* Bottom Floating Legend & Hint */}
-      <div className="absolute bottom-3 left-4 right-4 z-10 flex items-center justify-between text-[11px] text-slate-400 bg-slate-950/80 backdrop-blur-sm px-3 py-1.5 rounded-md border border-slate-800">
-        <div className="flex items-center space-x-4 font-mono text-[10px]">
+      {/* Bottom Floating Legend */}
+      <div
+        className="absolute bottom-3 left-4 right-4 z-10 flex items-center justify-center text-[10px] font-mono px-3 py-1.5 rounded"
+        style={{
+          background: 'rgba(11, 23, 32, 0.85)',
+          border: '1px solid #20333D',
+          color: 'var(--text-secondary)',
+        }}
+      >
+        <div className="flex items-center space-x-6">
           <span className="flex items-center space-x-1.5">
-            <span className="w-2 h-2 rounded-full bg-amber-500 inline-block" />
-            <span>Ch 0: 100-140 kHz (Deep / Turbid)</span>
+            <span className="w-2 h-2 rounded-full inline-block" style={{ background: '#D9A441' }} />
+            <span>CH0: 100–140 kHz (Deep / Turbid)</span>
           </span>
           <span className="flex items-center space-x-1.5">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
-            <span>Ch 1: 200-250 kHz (Thermocline)</span>
+            <span className="w-2 h-2 rounded-full inline-block" style={{ background: '#63C79A' }} />
+            <span>CH1: 200–250 kHz (Thermocline)</span>
           </span>
           <span className="flex items-center space-x-1.5">
-            <span className="w-2 h-2 rounded-full bg-purple-500 inline-block" />
-            <span>Ch 2: 400-480 kHz (High-Res Bathymetry)</span>
+            <span className="w-2 h-2 rounded-full inline-block" style={{ background: '#9B8EC4' }} />
+            <span>CH2: 400–480 kHz (High-Res Bathymetry)</span>
           </span>
-        </div>
-        <div className="text-slate-400 font-sans italic text-[10px]">
-          💡 Drag AUV or use Arrow Keys to steer through layers!
         </div>
       </div>
     </div>

@@ -74,7 +74,7 @@ export const BathymetryMap: React.FC<BathymetryMapProps> = ({ soundings, terrain
   const animConfidence = useAnimatedValue(stats.avgConfidence, 250, 0);
   const animRms = useAnimatedValue(stats.rmsErrorM, 250, 1);
 
-  // Export surveyed soundings as CSV / XYZ dataset
+  // Export surveyed soundings as CSV
   const handleExportCSV = () => {
     if (soundings.length === 0) return;
     const header = 'X_East_m,Y_North_m,Depth_Z_m,Confidence_pct,Frequency_kHz,Timestamp_ms\n';
@@ -96,60 +96,74 @@ export const BathymetryMap: React.FC<BathymetryMapProps> = ({ soundings, terrain
   };
 
   return (
-    <div className="glass-panel panel-accent-emerald flex flex-col h-full overflow-hidden">
+    <div className="instrument-panel flex flex-col h-full overflow-hidden">
       {/* Header */}
-      <div className="px-4 pt-3.5">
-        <div className="panel-header">
-          <div className="flex items-center gap-2">
-            <div className="p-1.5 rounded-md bg-emerald-900/50 border border-emerald-700/40">
-              <Map className="w-3.5 h-3.5 text-emerald-400" />
-            </div>
-            <div>
-              <div className="panel-title text-emerald-400">Reconstructed Bathymetry</div>
-              <p className="text-[9px] text-slate-500 mt-0.5">Acoustic Hydrographic Sounding Map</p>
-            </div>
+      <div className="instrument-panel-header">
+        <div className="flex items-center gap-2">
+          <div
+            className="flex items-center justify-center rounded"
+            style={{
+              background: '#12232D',
+              border: '1px solid #20333D',
+              padding: '6px',
+            }}
+          >
+            <Map className="w-3.5 h-3.5" style={{ color: '#63C79A' }} />
           </div>
-          <div className="flex items-center gap-2">
-            {soundings.length > 0 && (
-              <span className="hud-chip bg-emerald-950/70 text-emerald-400 border-emerald-700/50">
-                {soundings.length} soundings
-              </span>
-            )}
-            <button
-              onClick={handleExportCSV}
-              disabled={soundings.length === 0}
-              className="hud-chip bg-cyan-950/70 text-cyan-300 border-cyan-700/50 hover:bg-cyan-900/60 transition-all flex items-center gap-1 disabled:opacity-40 cursor-pointer"
-              title="Download Bathymetric Point Cloud as CSV / GIS format"
-            >
-              <Download className="w-3 h-3" />
-              <span>EXPORT CSV</span>
-            </button>
-            <button
-              onClick={onClear}
-              className="hud-chip bg-slate-900/70 text-slate-400 border-slate-700/50 hover:text-slate-200 hover:border-slate-600 transition-all flex items-center gap-1 cursor-pointer"
-            >
-              <Trash2 className="w-3 h-3" />
-              <span>CLEAR</span>
-            </button>
+          <div>
+            <div className="instrument-panel-title">Reconstructed Bathymetry</div>
+            <p className="text-[10px] text-slate-500 font-sans mt-0.5">Acoustic Hydrographic Sounding Map</p>
           </div>
+        </div>
+        <div className="flex items-center gap-2">
+          {soundings.length > 0 && (
+            <span className="hud-chip">
+              {soundings.length} soundings
+            </span>
+          )}
+          <button
+            onClick={handleExportCSV}
+            disabled={soundings.length === 0}
+            className="hud-chip transition-colors flex items-center gap-1 cursor-pointer disabled:opacity-40"
+            style={{
+              background: '#12232D',
+              borderColor: 'var(--border-default)',
+              color: '#43C7D9',
+            }}
+            title="Download Bathymetric Point Cloud as CSV format"
+          >
+            <Download className="w-3 h-3" />
+            <span>EXPORT CSV</span>
+          </button>
+          <button
+            onClick={onClear}
+            className="hud-chip transition-colors flex items-center gap-1 cursor-pointer"
+            style={{
+              background: '#12232D',
+              borderColor: 'var(--border-default)',
+              color: 'var(--text-muted)',
+            }}
+          >
+            <Trash2 className="w-3 h-3" />
+            <span>CLEAR</span>
+          </button>
         </div>
       </div>
 
       {/* SVG Map */}
       <div
-        className="relative flex-1 mx-4 rounded-lg overflow-hidden border border-white/[0.06] flex items-center justify-center"
-        style={{ background: 'rgba(1, 10, 20, 0.8)' }}
+        className="relative flex-1 mx-4 rounded overflow-hidden flex items-center justify-center"
+        style={{
+          background: '#091319',
+          border: '1px solid var(--border-subtle)',
+        }}
       >
         <svg width={svgWidth} height={svgHeight} className="w-full h-full">
           <defs>
             <linearGradient id="emeraldAreaGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="rgba(52,211,153,0.18)" />
-              <stop offset="100%" stopColor="rgba(52,211,153,0)" />
+              <stop offset="0%" stopColor="rgba(99, 199, 154, 0.15)" />
+              <stop offset="100%" stopColor="rgba(99, 199, 154, 0.0)" />
             </linearGradient>
-            <filter id="greenGlow">
-              <feGaussianBlur stdDeviation="1.5" result="blur" />
-              <feComposite in="SourceGraphic" in2="blur" operator="over" />
-            </filter>
           </defs>
 
           {/* Depth grid */}
@@ -166,7 +180,7 @@ export const BathymetryMap: React.FC<BathymetryMapProps> = ({ soundings, terrain
                 x={pad.left - 5}
                 y={mapY(d) + 3}
                 textAnchor="end"
-                style={{ fontSize: 7, fill: 'rgba(100,116,139,0.7)', fontFamily: 'JetBrains Mono,monospace' }}
+                style={{ fontSize: 7, fill: 'var(--text-muted)', fontFamily: 'JetBrains Mono,monospace' }}
               >
                 {d}m
               </text>
@@ -177,7 +191,7 @@ export const BathymetryMap: React.FC<BathymetryMapProps> = ({ soundings, terrain
           {soundingPath && <path d={soundingPath} fill="url(#emeraldAreaGrad)" />}
 
           {/* True seafloor reference */}
-          <path d={truePath} fill="none" stroke="rgba(148,163,184,0.2)" strokeWidth={1.5} strokeDasharray="4 4" />
+          <path d={truePath} fill="none" stroke="rgba(148,163,184,0.25)" strokeWidth={1.5} strokeDasharray="4 4" />
 
           {/* Individual sounding dots */}
           {soundings.map((s, idx) => {
@@ -185,19 +199,18 @@ export const BathymetryMap: React.FC<BathymetryMapProps> = ({ soundings, terrain
             const py = mapY(s.measuredDepth || s.trueDepth);
             const color =
               s.frequencyKHz && s.frequencyKHz < 160
-                ? '#f59e0b'
+                ? '#D9A441'
                 : s.frequencyKHz && s.frequencyKHz < 300
-                ? '#10b981'
-                : '#a855f7';
+                ? '#63C79A'
+                : '#9B8EC4';
             return (
               <circle
                 key={`sd-${idx}`}
                 cx={px}
                 cy={py}
-                r={2.5}
+                r={2}
                 fill={color}
-                style={{ filter: `drop-shadow(0 0 3px ${color})` }}
-                opacity={0.9}
+                opacity={0.85}
               />
             );
           })}
@@ -212,36 +225,34 @@ export const BathymetryMap: React.FC<BathymetryMapProps> = ({ soundings, terrain
                 return i === 0 ? `M ${px} ${py}` : `${acc} L ${px} ${py}`;
               }, '');
               return (
-                <path d={path} fill="none" stroke="rgba(52,211,153,0.6)" strokeWidth={1.5} filter="url(#greenGlow)" />
+                <path d={path} fill="none" stroke="#63C79A" strokeWidth={1.5} />
               );
             })()}
         </svg>
       </div>
 
       {/* Metrics footer */}
-      <div className="px-4 pb-3.5 pt-2.5 border-t border-white/[0.06] grid grid-cols-3 gap-2">
+      <div className="px-4 pb-3 pt-2.5 grid grid-cols-3 gap-2" style={{ borderTop: '1px solid var(--border-subtle)' }}>
         <div className="telemetry-cell">
-          <div className="telemetry-label text-emerald-500/70">Seabed Coverage</div>
-          <div className="telemetry-value text-emerald-300">{animCoverage}%</div>
+          <div className="telemetry-label">Seabed Coverage</div>
+          <div className="telemetry-value" style={{ color: '#63C79A' }}>{animCoverage}%</div>
           <div className="progress-track mt-1.5">
-            <div className="progress-fill bg-emerald-400" style={{ width: `${stats.coveragePct}%` }} />
+            <div className="progress-fill" style={{ width: `${stats.coveragePct}%`, background: '#63C79A' }} />
           </div>
         </div>
         <div className="telemetry-cell">
-          <div className="telemetry-label text-cyan-500/70">Avg Confidence</div>
-          <div className="telemetry-value text-cyan-300">{animConfidence}%</div>
+          <div className="telemetry-label">Avg Confidence</div>
+          <div className="telemetry-value" style={{ color: '#43C7D9' }}>{animConfidence}%</div>
           <div className="progress-track mt-1.5">
-            <div className="progress-fill bg-cyan-400" style={{ width: `${stats.avgConfidence}%` }} />
+            <div className="progress-fill" style={{ width: `${stats.avgConfidence}%`, background: '#43C7D9' }} />
           </div>
         </div>
         <div className="telemetry-cell">
-          <div className="telemetry-label text-violet-500/70">RMS Error</div>
-          <div className="telemetry-value text-violet-300">±{animRms}</div>
-          <div className="text-[8px] text-slate-600 mt-0.5">meters</div>
+          <div className="telemetry-label">RMS Error</div>
+          <div className="telemetry-value" style={{ color: '#9B8EC4' }}>±{animRms}</div>
+          <div className="text-[8px] font-mono text-slate-500 mt-0.5">meters</div>
         </div>
       </div>
     </div>
   );
 };
-
-// EOF: src/components/simulations/BathymetryMap.tsx

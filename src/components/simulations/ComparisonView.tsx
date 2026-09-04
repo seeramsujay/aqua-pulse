@@ -22,12 +22,12 @@ const HFMDopplerCanvas: React.FC<{ speed: number; chirpType: 'LFM' | 'HFM' }> = 
     const H = canvas.height;
     ctx.clearRect(0, 0, W, H);
 
-    // Background
-    ctx.fillStyle = '#050d18';
+    // Instrument Background
+    ctx.fillStyle = '#091319';
     ctx.fillRect(0, 0, W, H);
 
     // Grid lines
-    ctx.strokeStyle = '#1a2744';
+    ctx.strokeStyle = 'rgba(32, 51, 61, 0.6)';
     ctx.lineWidth = 0.5;
     for (let x = 0; x < W; x += W / 8) {
       ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
@@ -37,7 +37,7 @@ const HFMDopplerCanvas: React.FC<{ speed: number; chirpType: 'LFM' | 'HFM' }> = 
     }
 
     // Axis labels
-    ctx.fillStyle = '#64748b';
+    ctx.fillStyle = '#71858F';
     ctx.font = '9px monospace';
     ctx.fillText('Time →', W - 40, H - 4);
     ctx.save();
@@ -50,10 +50,6 @@ const HFMDopplerCanvas: React.FC<{ speed: number; chirpType: 'LFM' | 'HFM' }> = 
     const doppler = speed / 1500; // v/c normalised
     const smear = chirpType === 'LFM' ? speed * 1.8 : 0.8; // px smear
 
-    const gradient = ctx.createLinearGradient(30, 0, W - 30, 0);
-    gradient.addColorStop(0, chirpType === 'LFM' ? '#ef444466' : '#22c55e66');
-    gradient.addColorStop(1, chirpType === 'LFM' ? '#f9731666' : '#06b6d466');
-
     // Draw main chirp sweep
     for (let x = 30; x < W - 30; x++) {
       const t = (x - 30) / (W - 60);
@@ -61,7 +57,7 @@ const HFMDopplerCanvas: React.FC<{ speed: number; chirpType: 'LFM' | 'HFM' }> = 
       if (chirpType === 'LFM') {
         f = t; // linear
       } else {
-        // hyperbolic: f(t) = f0*f1 / (f1 - (f1-f0)*t)  → normalised
+        // hyperbolic: f(t) = f0*f1 / (f1 - (f1-f0)*t) → normalised
         const f0n = 0.1, f1n = 0.9;
         f = (f0n * f1n) / (f1n - (f1n - f0n) * t);
         f = Math.min(Math.max((f - f0n) / (f1n - f0n), 0), 1);
@@ -74,29 +70,29 @@ const HFMDopplerCanvas: React.FC<{ speed: number; chirpType: 'LFM' | 'HFM' }> = 
       // Smear width
       const lineW = Math.max(1.5, smear * 0.6);
       ctx.fillStyle = chirpType === 'LFM'
-        ? `rgba(239,68,68,${0.6 + 0.4 * (1 - smear / 18)})`
-        : 'rgba(34,197,94,0.85)';
+        ? `rgba(217, 107, 107, ${0.6 + 0.4 * (1 - smear / 18)})`
+        : 'rgba(99, 199, 154, 0.9)';
       ctx.fillRect(x, yCenter - lineW / 2, 1.5, lineW);
     }
 
     // Label
-    const labelColor = chirpType === 'LFM' ? '#fca5a5' : '#86efac';
+    const labelColor = chirpType === 'LFM' ? '#D96B6B' : '#63C79A';
     ctx.fillStyle = labelColor;
     ctx.font = 'bold 10px monospace';
     ctx.fillText(chirpType, 34, 16);
 
     if (chirpType === 'LFM' && speed > 0.5) {
-      ctx.fillStyle = '#fca5a5';
+      ctx.fillStyle = '#D96B6B';
       ctx.font = '9px monospace';
-      ctx.fillText(`⚠ Smear: ±${(smear * 0.5).toFixed(1)} cm`, 34, H - 20);
+      ctx.fillText(`Smear: ±${(smear * 0.5).toFixed(1)} cm`, 34, H - 20);
     } else if (chirpType === 'HFM') {
-      ctx.fillStyle = '#86efac';
+      ctx.fillStyle = '#63C79A';
       ctx.font = '9px monospace';
-      ctx.fillText('✓ Doppler-invariant', 34, H - 20);
+      ctx.fillText('Doppler-invariant', 34, H - 20);
     }
   }, [speed, chirpType]);
 
-  return <canvas ref={canvasRef} width={260} height={160} className="rounded border border-white/10 w-full" />;
+  return <canvas ref={canvasRef} width={260} height={160} className="rounded border border-[#20333D] w-full" />;
 };
 
 // ── Main Component ────────────────────────────────────────────────────────────
@@ -140,27 +136,27 @@ export const ComparisonView: React.FC<ComparisonViewProps> = ({ onSelectMode }) 
   ];
 
   const tabClass = (t: ActiveTab) =>
-    `px-4 py-1.5 rounded font-mono text-[10px] tracking-widest uppercase transition-all ${
+    `px-4 py-1.5 rounded font-mono text-[10px] tracking-widest uppercase transition-colors ${
       activeTab === t
-        ? 'bg-cyan-900/60 text-cyan-300 border border-cyan-700/60'
+        ? 'bg-[#12232D] text-[#43C7D9] border border-[#20333D]'
         : 'text-slate-500 hover:text-slate-300 border border-transparent'
     }`;
 
   return (
-    <div className="glass-panel p-6 space-y-5">
+    <div className="instrument-panel p-6 space-y-5">
       {/* Heading */}
       <div className="text-center space-y-2">
-        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-cyan-950/70 border border-cyan-700/50 text-cyan-300 font-mono text-[10px] tracking-widest uppercase">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded bg-[#12232D] border border-[#20333D] text-[#43C7D9] font-mono text-[10px] tracking-wider uppercase">
           <Zap className="w-3.5 h-3.5" />
           Acoustic Engineering Analysis
         </div>
-        <h2 className="text-xl font-bold text-slate-100 tracking-tight">
+        <h2 className="text-xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>
           Waveform Performance Comparison
         </h2>
       </div>
 
       {/* Tab bar */}
-      <div className="flex gap-2 border-b border-white/[0.06] pb-3">
+      <div className="flex gap-2 pb-3" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
         <button className={tabClass('comparison')} onClick={() => setActiveTab('comparison')}>
           CW vs RC-CSS
         </button>
@@ -175,66 +171,143 @@ export const ComparisonView: React.FC<ComparisonViewProps> = ({ onSelectMode }) 
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             {/* Legacy CW */}
-            <div className="relative flex flex-col rounded-xl border border-rose-900/40 overflow-hidden" style={{ background: 'rgba(12, 4, 6, 0.85)' }}>
-              <div className="absolute top-0 right-0 px-3 py-1 bg-rose-950/90 text-rose-400 font-mono text-[9px] tracking-widest uppercase border-b border-l border-rose-900/60 rounded-bl-xl">LEGACY CONVENTIONAL</div>
-              <div className="h-[2px] bg-gradient-to-r from-transparent via-rose-600/60 to-transparent" />
+            <div
+              className="relative flex flex-col rounded overflow-hidden"
+              style={{
+                background: 'var(--bg-inset)',
+                border: '1px solid var(--border-default)',
+              }}
+            >
+              <div
+                className="absolute top-0 right-0 px-3 py-1 font-mono text-[9px] tracking-wider uppercase rounded-bl"
+                style={{
+                  background: '#12232D',
+                  color: '#D96B6B',
+                  borderLeft: '1px solid var(--border-default)',
+                  borderBottom: '1px solid var(--border-default)',
+                }}
+              >
+                LEGACY CONVENTIONAL
+              </div>
               <div className="p-5 space-y-4 flex-1">
                 <div className="flex items-center gap-3">
-                  <div className="p-2.5 rounded-xl bg-rose-950/70 border border-rose-800/60 text-rose-400 flex-shrink-0"><ShieldAlert className="w-5 h-5" /></div>
+                  <div
+                    className="p-2 rounded flex-shrink-0"
+                    style={{
+                      background: '#12232D',
+                      border: '1px solid var(--border-default)',
+                      color: '#D96B6B',
+                    }}
+                  >
+                    <ShieldAlert className="w-5 h-5" />
+                  </div>
                   <div>
-                    <h3 className="text-sm font-bold text-slate-200">Single-Frequency CW Pulse</h3>
-                    <p className="font-mono text-[10px] text-slate-500">Fixed 450 kHz High-Frequency Ping</p>
+                    <h3 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Single-Frequency CW Pulse</h3>
+                    <p className="font-mono text-[10px]" style={{ color: 'var(--text-muted)' }}>Fixed 450 kHz High-Frequency Ping</p>
                   </div>
                 </div>
                 <ul className="space-y-2.5">
                   {CW_CONS.map(({ title, body }) => (
-                    <li key={title} className="flex items-start gap-2 text-xs text-slate-400">
-                      <XCircle className="w-3.5 h-3.5 text-rose-500 shrink-0 mt-0.5" />
-                      <span><strong className="text-rose-300">{title}:</strong> {body}</span>
+                    <li key={title} className="flex items-start gap-2 text-xs" style={{ color: 'var(--text-secondary)' }}>
+                      <XCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" style={{ color: '#D96B6B' }} />
+                      <span><strong style={{ color: '#D96B6B' }}>{title}:</strong> {body}</span>
                     </li>
                   ))}
                 </ul>
-                <div className="bg-rose-950/30 border border-rose-900/30 rounded-lg px-3 py-2 font-mono text-[11px] text-rose-300 flex items-center justify-between">
-                  <span>Coverage: <strong className="text-rose-400">{animCoverageCw}%</strong></span>
-                  <span>Deep SNR: <strong className="text-rose-400">{animSnrCw} dB (LOST)</strong></span>
+                <div
+                  className="rounded px-3 py-2 font-mono text-[11px] flex items-center justify-between"
+                  style={{
+                    background: '#071018',
+                    border: '1px solid var(--border-subtle)',
+                    color: '#D96B6B',
+                  }}
+                >
+                  <span>Coverage: <strong>{animCoverageCw}%</strong></span>
+                  <span>Deep SNR: <strong>{animSnrCw} dB (LOST)</strong></span>
                 </div>
               </div>
               <div className="px-5 pb-5">
-                <button onClick={() => onSelectMode('traditional-cw')} className="w-full py-2.5 rounded-lg bg-rose-950/50 hover:bg-rose-950/80 text-rose-400 hover:text-rose-300 border border-rose-900/60 font-mono text-[11px] font-bold tracking-wider uppercase transition-all">
+                <button
+                  onClick={() => onSelectMode('traditional-cw')}
+                  className="w-full py-2.5 rounded font-mono text-[11px] font-bold tracking-wider uppercase transition-colors"
+                  style={{
+                    background: '#12232D',
+                    border: '1px solid var(--border-default)',
+                    color: '#D96B6B',
+                  }}
+                >
                   Simulate Conventional CW Sonar
                 </button>
               </div>
             </div>
 
             {/* AquaPulse RC-CSS */}
-            <div className="relative flex flex-col rounded-xl border border-cyan-500/40 overflow-hidden shadow-[0_0_30px_rgba(0,180,216,0.10)]" style={{ background: 'rgba(0, 15, 30, 0.9)' }}>
-              <div className="absolute top-0 right-0 px-3 py-1 bg-cyan-950/90 text-cyan-300 font-mono text-[9px] tracking-widest uppercase border-b border-l border-cyan-700/60 rounded-bl-xl flex items-center gap-1.5">
-                <Sparkles className="w-2.5 h-2.5 text-cyan-400" /><span>AQUAPULSE RC-CSS</span>
+            <div
+              className="relative flex flex-col rounded overflow-hidden"
+              style={{
+                background: 'var(--bg-inset)',
+                border: '1px solid var(--border-default)',
+              }}
+            >
+              <div
+                className="absolute top-0 right-0 px-3 py-1 font-mono text-[9px] tracking-wider uppercase rounded-bl flex items-center gap-1.5"
+                style={{
+                  background: '#12232D',
+                  color: '#43C7D9',
+                  borderLeft: '1px solid var(--border-default)',
+                  borderBottom: '1px solid var(--border-default)',
+                }}
+              >
+                <Sparkles className="w-2.5 h-2.5 text-[#43C7D9]" />
+                <span>AQUAPULSE RC-CSS</span>
               </div>
-              <div className="h-[2px] bg-gradient-to-r from-transparent via-cyan-400/70 to-transparent" />
               <div className="p-5 space-y-4 flex-1">
                 <div className="flex items-center gap-3">
-                  <div className="p-2.5 rounded-xl bg-cyan-950/80 border border-cyan-700/60 text-cyan-300 flex-shrink-0"><Radio className="w-5 h-5" /></div>
+                  <div
+                    className="p-2 rounded flex-shrink-0"
+                    style={{
+                      background: '#12232D',
+                      border: '1px solid var(--border-default)',
+                      color: '#43C7D9',
+                    }}
+                  >
+                    <Radio className="w-5 h-5" />
+                  </div>
                   <div>
-                    <h3 className="text-sm font-bold text-slate-100">Stepped Multi-Tone CSS (RC-CSS)</h3>
-                    <p className="font-mono text-[10px] text-cyan-400">100–140 / 200–250 / 400–480 kHz Micro-Chirps</p>
+                    <h3 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Stepped Multi-Tone CSS (RC-CSS)</h3>
+                    <p className="font-mono text-[10px]" style={{ color: '#43C7D9' }}>100–140 / 200–250 / 400–480 kHz Micro-Chirps</p>
                   </div>
                 </div>
                 <ul className="space-y-2.5">
                   {CSS_PROS.map(({ title, body }) => (
-                    <li key={title} className="flex items-start gap-2 text-xs text-slate-300">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
-                      <span><strong className="text-emerald-300">{title}:</strong> {body}</span>
+                    <li key={title} className="flex items-start gap-2 text-xs" style={{ color: 'var(--text-secondary)' }}>
+                      <CheckCircle2 className="w-3.5 h-3.5 shrink-0 mt-0.5" style={{ color: '#63C79A' }} />
+                      <span><strong style={{ color: '#63C79A' }}>{title}:</strong> {body}</span>
                     </li>
                   ))}
                 </ul>
-                <div className="bg-cyan-950/60 border border-cyan-800/40 rounded-lg px-3 py-2 font-mono text-[11px] text-cyan-300 flex items-center justify-between">
-                  <span>Coverage: <strong className="text-emerald-400">{animCoverageCss}%</strong></span>
-                  <span>Deep SNR: <strong className="text-emerald-400">+{animSnrCss} dB (LOCKED)</strong></span>
+                <div
+                  className="rounded px-3 py-2 font-mono text-[11px] flex items-center justify-between"
+                  style={{
+                    background: '#071018',
+                    border: '1px solid var(--border-subtle)',
+                    color: '#63C79A',
+                  }}
+                >
+                  <span>Coverage: <strong>{animCoverageCss}%</strong></span>
+                  <span>Deep SNR: <strong>+{animSnrCss} dB (LOCKED)</strong></span>
                 </div>
               </div>
               <div className="px-5 pb-5">
-                <button onClick={() => onSelectMode('rc-css')} className="w-full py-2.5 rounded-lg text-slate-950 font-mono text-[11px] font-bold tracking-wider uppercase transition-all" style={{ background: 'linear-gradient(135deg, #00e5ff 0%, #0096c7 100%)' }}>
+                <button
+                  onClick={() => onSelectMode('rc-css')}
+                  className="w-full py-2.5 rounded font-mono text-[11px] font-bold tracking-wider uppercase transition-colors"
+                  style={{
+                    background: '#43C7D9',
+                    color: '#071018',
+                    border: 'none',
+                  }}
+                >
                   Activate Rolling-Channel CSS Mode
                 </button>
               </div>
@@ -242,21 +315,27 @@ export const ComparisonView: React.FC<ComparisonViewProps> = ({ onSelectMode }) 
           </div>
 
           {/* Metric table */}
-          <div className="rounded-xl border border-white/[0.07] overflow-hidden" style={{ background: 'rgba(0,0,0,0.45)' }}>
-            <div className="px-4 py-2 border-b border-white/[0.07] flex items-center justify-between">
+          <div
+            className="rounded overflow-hidden"
+            style={{
+              background: 'var(--bg-inset)',
+              border: '1px solid var(--border-default)',
+            }}
+          >
+            <div className="px-4 py-2 flex items-center justify-between" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
               <div className="flex items-center gap-2">
-                <TrendingUp className="w-3.5 h-3.5 text-cyan-400" />
-                <span className="font-mono text-[10px] text-slate-300 uppercase tracking-widest">Acoustic Hydrography Benchmark Breakdown</span>
+                <TrendingUp className="w-3.5 h-3.5 text-[#43C7D9]" />
+                <span className="font-mono text-[10px] text-slate-300 uppercase tracking-wider">Acoustic Hydrography Benchmark Breakdown</span>
               </div>
               <span className="font-mono text-[9px] text-slate-500">SIH26058 MoES/NIOT Metrics</span>
             </div>
-            <div className="divide-y divide-white/[0.05]">
+            <div className="divide-y divide-[#182A34]">
               {METRICS.map(({ label, cwVal, cssVal, cssGood, explanation }) => (
-                <div key={label} className="p-3 hover:bg-white/[0.015] transition-colors">
+                <div key={label} className="p-3 hover:bg-[#12232D]/40 transition-colors">
                   <div className="grid grid-cols-1 md:grid-cols-12 gap-2 text-xs font-mono items-center">
                     <div className="md:col-span-6 font-bold text-slate-300">{label}</div>
-                    <div className="md:col-span-3 text-rose-400 text-left md:text-center">{cwVal}</div>
-                    <div className={`md:col-span-3 text-left md:text-right font-bold ${cssGood ? 'text-emerald-400' : 'text-rose-400'}`}>{cssVal}</div>
+                    <div className="md:col-span-3 text-[#D96B6B] text-left md:text-center">{cwVal}</div>
+                    <div className={`md:col-span-3 text-left md:text-right font-bold ${cssGood ? 'text-[#63C79A]' : 'text-[#D96B6B]'}`}>{cssVal}</div>
                   </div>
                   <p className="text-[10px] text-slate-500 mt-1 font-sans leading-relaxed">{explanation}</p>
                 </div>
@@ -270,10 +349,16 @@ export const ComparisonView: React.FC<ComparisonViewProps> = ({ onSelectMode }) 
       {activeTab === 'hfm' && (
         <div className="space-y-5">
           {/* Header explanation */}
-          <div className="rounded-xl border border-white/[0.07] bg-black/30 p-4 space-y-1">
+          <div
+            className="rounded p-4 space-y-1"
+            style={{
+              background: 'var(--bg-inset)',
+              border: '1px solid var(--border-default)',
+            }}
+          >
             <p className="font-mono text-[11px] text-slate-300 leading-relaxed">
-              <strong className="text-cyan-300">HFM (Hyperbolic FM)</strong> sweeps frequency along a hyperbolic curve:&nbsp;
-              <span className="text-amber-300 font-mono">f(t) = f₀·f₁ / [f₁ − (f₁−f₀)·t/Tₚ]</span>
+              <strong style={{ color: '#43C7D9' }}>HFM (Hyperbolic FM)</strong> sweeps frequency along a hyperbolic curve:&nbsp;
+              <span style={{ color: '#D9A441' }}>f(t) = f₀·f₁ / [f₁ − (f₁−f₀)·t/Tₚ]</span>
             </p>
             <p className="font-mono text-[10px] text-slate-500">
               Unlike LFM, Doppler compression/dilation does not change the shape of the HFM — it only shifts the matched filter peak laterally in Doppler. Range accuracy is preserved regardless of AUV speed.
@@ -286,20 +371,27 @@ export const ComparisonView: React.FC<ComparisonViewProps> = ({ onSelectMode }) 
             <input
               type="range" min={0} max={5} step={0.1} value={auvSpeed}
               onChange={(e) => setAuvSpeed(parseFloat(e.target.value))}
-              className="flex-1 accent-cyan-400"
+              className="flex-1 accent-[#43C7D9]"
             />
-            <span className="font-mono text-[11px] text-cyan-300 w-14 text-right">{auvSpeed.toFixed(1)} m/s</span>
+            <span className="font-mono text-[11px] font-bold text-[#43C7D9] w-14 text-right">{auvSpeed.toFixed(1)} m/s</span>
           </div>
 
           {/* Doppler shift annotation */}
           <div className="grid grid-cols-3 gap-3 text-center">
             {[
-              { label: 'Doppler Δf @ 480 kHz', val: `${(480 * 2 * auvSpeed / 1500).toFixed(1)} kHz`, color: 'text-amber-300' },
-              { label: 'LFM Range Error', val: auvSpeed > 0 ? `~${(auvSpeed * 1.8 * 0.5).toFixed(1)} cm` : '0 cm', color: 'text-rose-400' },
-              { label: 'HFM Range Error', val: '< 0.5 cm', color: 'text-emerald-400' },
+              { label: 'Doppler Δf @ 480 kHz', val: `${(480 * 2 * auvSpeed / 1500).toFixed(1)} kHz`, color: '#D9A441' },
+              { label: 'LFM Range Error', val: auvSpeed > 0 ? `~${(auvSpeed * 1.8 * 0.5).toFixed(1)} cm` : '0 cm', color: '#D96B6B' },
+              { label: 'HFM Range Error', val: '< 0.5 cm', color: '#63C79A' },
             ].map(({ label, val, color }) => (
-              <div key={label} className="rounded-lg border border-white/[0.08] bg-black/30 px-3 py-2">
-                <div className={`font-mono text-sm font-bold ${color}`}>{val}</div>
+              <div
+                key={label}
+                className="rounded px-3 py-2"
+                style={{
+                  background: 'var(--bg-inset)',
+                  border: '1px solid var(--border-default)',
+                }}
+              >
+                <div className="font-mono text-sm font-bold" style={{ color }}>{val}</div>
                 <div className="font-mono text-[9px] text-slate-500 mt-0.5">{label}</div>
               </div>
             ))}
@@ -308,23 +400,29 @@ export const ComparisonView: React.FC<ComparisonViewProps> = ({ onSelectMode }) 
           {/* Side-by-side canvas */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <div className="font-mono text-[10px] text-rose-400 uppercase tracking-widest">LFM — Linear FM</div>
+              <div className="font-mono text-[10px] text-[#D96B6B] uppercase tracking-wider">LFM — Linear FM</div>
               <HFMDopplerCanvas speed={auvSpeed} chirpType="LFM" />
               <p className="text-[9px] text-slate-500 font-sans">Peak broadens with AUV speed. Range resolution degrades.</p>
             </div>
             <div className="space-y-1.5">
-              <div className="font-mono text-[10px] text-emerald-400 uppercase tracking-widest">HFM — Hyperbolic FM</div>
+              <div className="font-mono text-[10px] text-[#63C79A] uppercase tracking-wider">HFM — Hyperbolic FM</div>
               <HFMDopplerCanvas speed={auvSpeed} chirpType="HFM" />
               <p className="text-[9px] text-slate-500 font-sans">Peak stays sharp at all speeds. Doppler-invariant waveform.</p>
             </div>
           </div>
 
           {/* Physics table */}
-          <div className="rounded-xl border border-white/[0.07] overflow-hidden" style={{ background: 'rgba(0,0,0,0.4)' }}>
-            <div className="px-4 py-2 border-b border-white/[0.07]">
-              <span className="font-mono text-[10px] text-slate-300 uppercase tracking-widest">Waveform Properties — Channel 1 (200–250 kHz, Tp = 0.8 ms)</span>
+          <div
+            className="rounded overflow-hidden"
+            style={{
+              background: 'var(--bg-inset)',
+              border: '1px solid var(--border-default)',
+            }}
+          >
+            <div className="px-4 py-2" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+              <span className="font-mono text-[10px] text-slate-300 uppercase tracking-wider">Waveform Properties — Channel 1 (200–250 kHz, Tp = 0.8 ms)</span>
             </div>
-            <div className="divide-y divide-white/[0.05]">
+            <div className="divide-y divide-[#182A34]">
               {[
                 { prop: 'Instantaneous Frequency Law', lfm: 'f(t) = f₀ + (B/Tₚ)·t  [linear]', hfm: 'f(t) = f₀f₁/[f₁−(f₁−f₀)t/Tₚ]  [hyperbolic]' },
                 { prop: 'Doppler Sensitivity', lfm: 'High — peak smears under velocity', hfm: 'Near-zero — DFT shift only' },
@@ -332,10 +430,10 @@ export const ComparisonView: React.FC<ComparisonViewProps> = ({ onSelectMode }) 
                 { prop: 'Range Resolution (FWHM)', lfm: `~${(1.87 + auvSpeed * 0.9).toFixed(1)} cm @ ${auvSpeed.toFixed(1)} m/s`, hfm: '~1.50 cm (invariant)' },
                 { prop: 'Hardware Change Required', lfm: 'N/A (baseline)', hfm: 'None — firmware LUT only' },
               ].map(({ prop, lfm, hfm }) => (
-                <div key={prop} className="grid grid-cols-3 gap-2 px-4 py-2.5 text-[10px] font-mono hover:bg-white/[0.015]">
+                <div key={prop} className="grid grid-cols-3 gap-2 px-4 py-2.5 text-[10px] font-mono hover:bg-[#12232D]/40">
                   <div className="text-slate-400 font-semibold">{prop}</div>
-                  <div className="text-rose-300">{lfm}</div>
-                  <div className="text-emerald-300">{hfm}</div>
+                  <div className="text-[#D96B6B]">{lfm}</div>
+                  <div className="text-[#63C79A]">{hfm}</div>
                 </div>
               ))}
             </div>
@@ -345,5 +443,3 @@ export const ComparisonView: React.FC<ComparisonViewProps> = ({ onSelectMode }) 
     </div>
   );
 };
-
-// EOF: src/components/simulations/ComparisonView.tsx
