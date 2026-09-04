@@ -23,7 +23,7 @@ export const ThreeDViewportModal: React.FC<ThreeDViewportModalProps> = ({ isOpen
 
         // Scene, Camera, Renderer
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x020612);
+        scene.background = new THREE.Color(0x071018);
 
         const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
         camera.position.set(16, 12, 18);
@@ -40,14 +40,14 @@ export const ThreeDViewportModal: React.FC<ThreeDViewportModalProps> = ({ isOpen
         controls.dampingFactor = 0.05;
 
         // Lighting
-        const ambientLight = new THREE.AmbientLight(0x00f0ff, 0.8);
+        const ambientLight = new THREE.AmbientLight(0x43c7d9, 0.8);
         scene.add(ambientLight);
 
-        const dirLight = new THREE.DirectionalLight(0xffffff, 2.5);
+        const dirLight = new THREE.DirectionalLight(0xffffff, 2.2);
         dirLight.position.set(10, 20, 15);
         scene.add(dirLight);
 
-        const blueSpot = new THREE.PointLight(0x0096c7, 10, 50);
+        const blueSpot = new THREE.PointLight(0x2a8997, 8, 50);
         blueSpot.position.set(0, 5, 0);
         scene.add(blueSpot);
 
@@ -72,13 +72,13 @@ export const ThreeDViewportModal: React.FC<ThreeDViewportModalProps> = ({ isOpen
                 // Fallback 3D AUV Primitive Representation
                 const group = new THREE.Group();
                 const hullGeo = new THREE.CylinderGeometry(1.2, 1.2, 7, 32);
-                const hullMat = new THREE.MeshStandardMaterial({ color: 0x00f0ff, metalness: 0.8, roughness: 0.2 });
+                const hullMat = new THREE.MeshStandardMaterial({ color: 0x43c7d9, metalness: 0.8, roughness: 0.2 });
                 const hull = new THREE.Mesh(hullGeo, hullMat);
                 hull.rotation.z = Math.PI / 2;
                 group.add(hull);
 
                 const noseGeo = new THREE.SphereGeometry(1.2, 32, 32);
-                const noseMat = new THREE.MeshStandardMaterial({ color: 0xffb703, metalness: 0.9, roughness: 0.1 });
+                const noseMat = new THREE.MeshStandardMaterial({ color: 0xd9a441, metalness: 0.9, roughness: 0.1 });
                 const nose = new THREE.Mesh(noseGeo, noseMat);
                 nose.position.x = 3.5;
                 group.add(nose);
@@ -120,44 +120,89 @@ export const ThreeDViewportModal: React.FC<ThreeDViewportModalProps> = ({ isOpen
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
-            <div className="relative w-full max-w-5xl h-[80vh] bg-slate-950/90 border border-cyan-500/40 rounded-2xl flex flex-col overflow-hidden shadow-[0_0_50px_rgba(0,240,255,0.2)]">
+        <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            style={{ background: 'rgba(7, 16, 24, 0.85)' }}
+            onClick={(e) => e.target === e.currentTarget && onClose()}
+        >
+            <div
+                className="relative w-full max-w-5xl h-[80vh] flex flex-col overflow-hidden"
+                style={{
+                    background: '#0B1720',
+                    border: '1px solid #20333D',
+                    borderRadius: '8px',
+                }}
+            >
                 {/* Modal Header */}
-                <div className="px-5 py-3 border-b border-white/10 flex items-center justify-between bg-cyan-950/40">
+                <div
+                    className="px-5 py-3 flex items-center justify-between"
+                    style={{
+                        background: '#0E1C25',
+                        borderBottom: '1px solid #182A34',
+                    }}
+                >
                     <div className="flex items-center gap-2.5">
-                        <Box className="w-5 h-5 text-cyan-400" />
-                        <h3 className="font-mono font-bold text-sm text-slate-100 uppercase tracking-widest">
+                        <div
+                            className="p-1.5 rounded flex items-center justify-center"
+                            style={{
+                                background: '#12232D',
+                                border: '1px solid #20333D',
+                                color: '#43C7D9',
+                            }}
+                        >
+                            <Box className="w-4 h-4" />
+                        </div>
+                        <h3 className="font-mono font-bold text-sm text-slate-100 uppercase tracking-wider">
                             Blender 3D CAD &amp; Ray Physics Viewport
                         </h3>
-                        <span className="hud-chip bg-cyan-950 text-cyan-300 border-cyan-700/50">
+                        <span className="hud-chip">
                             GLB Model Render
                         </span>
                     </div>
                     <button
                         onClick={onClose}
-                        className="p-1.5 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
+                        className="flex items-center justify-center rounded text-slate-400 hover:text-white transition-colors"
+                        style={{
+                            background: '#12232D',
+                            border: '1px solid #20333D',
+                            padding: '6px',
+                        }}
                     >
-                        <X className="w-5 h-5" />
+                        <X className="w-4 h-4" />
                     </button>
                 </div>
 
                 {/* 3D Viewport Canvas Area */}
                 <div className="relative flex-1 w-full h-full" ref={mountRef}>
                     {loading && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-slate-950/80 font-mono text-cyan-400 text-xs gap-2">
+                        <div className="absolute inset-0 flex items-center justify-center font-mono text-xs gap-2" style={{ background: '#071018', color: '#43C7D9' }}>
                             <RefreshCw className="w-4 h-4 animate-spin" />
                             <span>Rendering 3D Blender GLB Geometry...</span>
                         </div>
                     )}
                     {error && (
-                        <div className="absolute top-4 left-4 right-4 p-3 bg-amber-950/80 border border-amber-500/40 rounded-lg text-amber-300 font-mono text-xs">
+                        <div
+                            className="absolute top-4 left-4 right-4 p-3 rounded font-mono text-xs"
+                            style={{
+                                background: '#091319',
+                                border: '1px solid #D9A441',
+                                color: '#D9A441',
+                            }}
+                        >
                             {error}
                         </div>
                     )}
 
                     {/* Overlay Controls Guide */}
-                    <div className="absolute bottom-4 left-4 p-3 rounded-xl border border-white/10 bg-slate-950/70 font-mono text-[10px] text-slate-400 space-y-1">
-                        <div className="text-cyan-300 font-bold flex items-center gap-1.5">
+                    <div
+                        className="absolute bottom-4 left-4 p-3 rounded font-mono text-[10px] space-y-1"
+                        style={{
+                            background: '#0B1720',
+                            border: '1px solid #20333D',
+                            color: 'var(--text-secondary)',
+                        }}
+                    >
+                        <div className="font-bold flex items-center gap-1.5" style={{ color: '#43C7D9' }}>
                             <Layers className="w-3.5 h-3.5" />
                             Interactive 3D Controls
                         </div>
@@ -170,5 +215,3 @@ export const ThreeDViewportModal: React.FC<ThreeDViewportModalProps> = ({ isOpen
         </div>
     );
 };
-
-// EOF: src/components/simulations/ThreeDViewportModal.tsx

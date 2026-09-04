@@ -24,41 +24,41 @@ export const BootSequence: React.FC<BootSequenceProps> = ({ onComplete }) => {
       text: 'AQUAPULSE GROUND CONTROL TELEMETRY SUITE v2.4.0',
       subtext: 'MoES / NIOT Autonomous Hydrographic Payload Interface Initializing...',
       status: currentStep > 0 ? 'SUCCESS' : 'ACTIVE',
-      icon: <Terminal className="w-3.5 h-3.5 text-cyan-400" />
+      icon: <Terminal className="w-3.5 h-3.5 text-[#43C7D9]" />
     },
     {
       id: 1,
       text: 'MACKENZIE (1981) VELOCITY & SNELL RAY TRACER ENGINE',
       subtext: 'Calculating c(T, S, z) sound speed gradients across 4 bathymetric strata...',
       status: currentStep > 1 ? 'SUCCESS' : currentStep === 1 ? 'ACTIVE' : 'PENDING',
-      icon: <Waves className="w-3.5 h-3.5 text-teal-400" />
+      icon: <Waves className="w-3.5 h-3.5 text-[#43C7D9]" />
     },
     {
       id: 2,
       text: 'ROLLING-CHANNEL CHIRP SPREAD SPECTRUM (RC-CSS) SYNTHESIZER',
       subtext: 'Bands: Ch0 (100-140kHz), Ch1 (200-250kHz), Ch2 (400-480kHz) Matched Filters Loaded',
       status: currentStep > 2 ? 'SUCCESS' : currentStep === 2 ? 'ACTIVE' : 'PENDING',
-      icon: <Radio className="w-3.5 h-3.5 text-amber-400" />
+      icon: <Radio className="w-3.5 h-3.5 text-[#D9A441]" />
     },
     {
       id: 3,
       text: 'INT8 TINYML COGNITIVE POLICY & ADAPTIVE ACOUSTIC AGENT',
       subtext: 'Zero-overhead DMA timing synced with OPA1612 4th-order Sallen-Key analog filter',
       status: currentStep > 3 ? 'SUCCESS' : currentStep === 3 ? 'ACTIVE' : 'PENDING',
-      icon: <Cpu className="w-3.5 h-3.5 text-indigo-400" />
+      icon: <Cpu className="w-3.5 h-3.5 text-[#9B8EC4]" />
     },
     {
       id: 4,
       text: 'TACTICAL ACOUSTIC TELEMETRY BRIDGE CONNECTED',
       subtext: 'Subsea AUV Carrier lock established. Monostatic blind zone restricted to <1.1m.',
       status: currentStep >= 4 ? 'SUCCESS' : 'PENDING',
-      icon: <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+      icon: <ShieldCheck className="w-3.5 h-3.5 text-[#63C79A]" />
     }
   ];
 
   const handleFinish = () => {
     setIsFadingOut(true);
-    setTimeout(onComplete, 500);
+    setTimeout(onComplete, 400);
   };
 
   useEffect(() => {
@@ -102,72 +102,109 @@ export const BootSequence: React.FC<BootSequenceProps> = ({ onComplete }) => {
 
   return (
     <div
-      className={`fixed inset-0 z-50 flex flex-col items-center justify-center p-6 bg-[#020612] text-slate-100 select-none transition-opacity duration-500 ${
+      className={`fixed inset-0 z-50 flex flex-col items-center justify-center p-6 select-none transition-opacity duration-400 ${
         isFadingOut ? 'opacity-0 pointer-events-none' : 'opacity-100'
       }`}
       style={{
-        backgroundImage: `
-          radial-gradient(ellipse 60% 50% at 50% 50%, rgba(0, 180, 216, 0.08) 0%, transparent 80%),
-          repeating-linear-gradient(0deg, rgba(0,0,0,0.2) 0px, rgba(0,0,0,0.2) 2px, transparent 2px, transparent 4px)
-        `
+        background: '#071018',
+        color: 'var(--text-primary)',
       }}
     >
-      {/* Central Radar Pulse Emblem */}
-      <div className="relative mb-8 flex items-center justify-center">
-        <div className="w-24 h-24 rounded-full border border-cyan-500/20 flex items-center justify-center animate-ping-slow absolute inset-0 m-auto" />
-        <div className="w-32 h-32 rounded-full border border-cyan-500/10 flex items-center justify-center animate-pulse-slow absolute inset-0 m-auto" />
-        <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-cyan-950/80 to-slate-900 border border-cyan-500/40 flex items-center justify-center shadow-[0_0_30px_rgba(0,240,255,0.25)] relative z-10">
-          <Activity className="w-10 h-10 text-cyan-400 animate-pulse" />
+      {/* Central Emblem - Static Instrument Box */}
+      <div className="mb-6 flex items-center justify-center">
+        <div
+          className="w-16 h-16 rounded flex items-center justify-center"
+          style={{
+            background: 'var(--bg-elevated)',
+            border: '1px solid var(--border-default)',
+          }}
+        >
+          <Activity className="w-8 h-8 text-[#43C7D9]" />
         </div>
       </div>
 
-      {/* Title & Organization Subheading */}
+      {/* Title & Subheading */}
       <div className="text-center mb-6 max-w-xl">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-950/60 border border-cyan-700/50 text-cyan-300 font-mono text-[11px] tracking-widest uppercase mb-2">
-          <Radio className="w-3.5 h-3.5 animate-spin" />
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded hud-chip mb-2">
           <span>CYBER-PHYSICAL SONAR PAYLOAD</span>
         </div>
         <h1 className="text-2xl font-extrabold tracking-wider font-mono text-white">
-          AQUA<span className="text-cyan-400">PULSE</span> GROUND STATION
+          AQUA<span className="text-[#43C7D9]">PULSE</span> GROUND STATION
         </h1>
-        <p className="text-xs text-slate-400 font-mono mt-1">
+        <p className="text-xs font-mono mt-1" style={{ color: 'var(--text-muted)' }}>
           Ministry of Earth Sciences (MoES) / NIOT Deep-Sea Acoustic Sounding Protocol
         </p>
       </div>
 
       {/* Boot Log Console */}
-      <div className="w-full max-w-2xl bg-black/60 border border-slate-800/80 rounded-xl p-4 shadow-2xl backdrop-blur-xl mb-6 font-mono text-xs space-y-3">
+      <div
+        className="w-full max-w-2xl rounded p-4 mb-6 font-mono text-xs space-y-3"
+        style={{
+          background: 'var(--bg-panel)',
+          border: '1px solid var(--border-default)',
+        }}
+      >
         {logs.map((log) => (
           <div
             key={log.id}
-            className={`flex items-start gap-3 transition-all duration-300 ${
+            className={`flex items-start gap-3 transition-opacity duration-200 ${
               log.status === 'PENDING'
-                ? 'opacity-20 translate-y-1'
+                ? 'opacity-25'
                 : log.status === 'ACTIVE'
-                ? 'opacity-100 text-cyan-300'
-                : 'opacity-85 text-slate-300'
+                ? 'opacity-100'
+                : 'opacity-90'
             }`}
           >
-            <div className="p-1 rounded bg-slate-900 border border-slate-800 mt-0.5">
+            <div
+              className="p-1 rounded mt-0.5"
+              style={{
+                background: 'var(--bg-inset)',
+                border: '1px solid var(--border-subtle)',
+              }}
+            >
               {log.icon}
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between gap-2">
-                <span className="font-bold text-[11px] truncate tracking-wide">{log.text}</span>
                 <span
-                  className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider ${
-                    log.status === 'SUCCESS'
-                      ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-800/50'
-                      : log.status === 'ACTIVE'
-                      ? 'bg-cyan-950/80 text-cyan-400 border border-cyan-800/50 animate-pulse'
-                      : 'bg-slate-900 text-slate-600'
-                  }`}
+                  className="font-bold text-[11px] truncate tracking-wide"
+                  style={{
+                    color: log.status === 'ACTIVE' ? '#43C7D9' : 'var(--text-primary)',
+                  }}
+                >
+                  {log.text}
+                </span>
+                <span
+                  className="text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider font-mono"
+                  style={{
+                    background:
+                      log.status === 'SUCCESS'
+                        ? 'rgba(99, 199, 154, 0.15)'
+                        : log.status === 'ACTIVE'
+                        ? 'rgba(67, 199, 217, 0.15)'
+                        : '#12232D',
+                    color:
+                      log.status === 'SUCCESS'
+                        ? '#63C79A'
+                        : log.status === 'ACTIVE'
+                        ? '#43C7D9'
+                        : 'var(--text-muted)',
+                    border: '1px solid',
+                    borderColor:
+                      log.status === 'SUCCESS'
+                        ? '#63C79A'
+                        : log.status === 'ACTIVE'
+                        ? '#43C7D9'
+                        : 'var(--border-subtle)',
+                  }}
                 >
                   {log.status === 'SUCCESS' ? 'OK' : log.status === 'ACTIVE' ? 'INITIALIZING' : 'WAIT'}
                 </span>
               </div>
               {log.subtext && (
-                <p className="text-[10px] text-slate-400 mt-0.5 leading-relaxed">{log.subtext}</p>
+                <p className="text-[10px] mt-0.5 leading-relaxed font-sans" style={{ color: 'var(--text-muted)' }}>
+                  {log.subtext}
+                </p>
               )}
             </div>
           </div>
@@ -176,23 +213,37 @@ export const BootSequence: React.FC<BootSequenceProps> = ({ onComplete }) => {
 
       {/* Progress Bar & Actions */}
       <div className="w-full max-w-2xl flex flex-col gap-2">
-        <div className="flex items-center justify-between text-[11px] font-mono text-slate-400">
+        <div className="flex items-center justify-between text-[11px] font-mono" style={{ color: 'var(--text-muted)' }}>
           <span>SYSTEM READY: {progress}%</span>
-          <span className="text-cyan-400">STATUS: INITIALIZING ACOUSTIC HARDWARE</span>
+          <span style={{ color: '#43C7D9' }}>STATUS: INITIALIZING ACOUSTIC HARDWARE</span>
         </div>
-        <div className="w-full h-1.5 bg-slate-900 rounded-full overflow-hidden border border-slate-800">
+        <div
+          className="w-full h-1.5 rounded-full overflow-hidden"
+          style={{
+            background: 'var(--bg-inset)',
+            border: '1px solid var(--border-subtle)',
+          }}
+        >
           <div
-            className="h-full bg-gradient-to-r from-cyan-500 via-teal-400 to-emerald-400 transition-all duration-150 rounded-full"
-            style={{ width: `${progress}%` }}
+            className="h-full transition-all duration-150 rounded-full"
+            style={{
+              width: `${progress}%`,
+              background: '#43C7D9',
+            }}
           />
         </div>
         <div className="flex justify-between items-center mt-3">
-          <span className="text-[10px] font-mono text-slate-500">
-            Press <kbd className="px-1.5 py-0.5 bg-slate-900 border border-slate-700 rounded text-slate-300">ESC</kbd> or <kbd className="px-1.5 py-0.5 bg-slate-900 border border-slate-700 rounded text-slate-300">SPACE</kbd> to enter console
+          <span className="text-[10px] font-mono" style={{ color: 'var(--text-dim)' }}>
+            Press <kbd className="px-1.5 py-0.5 rounded text-[10px]" style={{ background: 'var(--bg-inset)', border: '1px solid var(--border-default)', color: 'var(--text-secondary)' }}>ESC</kbd> or <kbd className="px-1.5 py-0.5 rounded text-[10px]" style={{ background: 'var(--bg-inset)', border: '1px solid var(--border-default)', color: 'var(--text-secondary)' }}>SPACE</kbd> to enter console
           </span>
           <button
             onClick={handleFinish}
-            className="px-4 py-1 rounded-lg bg-cyan-950/80 hover:bg-cyan-900 text-cyan-300 border border-cyan-700/60 font-mono text-[11px] font-bold tracking-wider uppercase transition-all shadow-[0_0_15px_rgba(0,240,255,0.15)] hover:shadow-[0_0_20px_rgba(0,240,255,0.3)]"
+            className="px-4 py-1.5 rounded font-mono text-[11px] font-bold tracking-wider uppercase transition-colors"
+            style={{
+              background: '#43C7D9',
+              color: '#071018',
+              border: 'none',
+            }}
           >
             ENTER CONSOLE →
           </button>

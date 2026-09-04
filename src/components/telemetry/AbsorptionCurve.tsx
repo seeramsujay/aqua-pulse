@@ -49,40 +49,44 @@ export const AbsorptionCurve: React.FC<AbsorptionCurveProps> = ({
   const activeY = mapY(Math.min(MAX_A, currentAlpha));
 
   return (
-    <div className="glass-panel panel-accent-amber flex flex-col h-full overflow-hidden">
+    <div className="instrument-panel flex flex-col h-full overflow-hidden">
       {/* Header */}
-      <div className="px-4 pt-3.5">
-        <div className="panel-header">
-          <div className="flex items-center gap-2">
-            <div className="p-1.5 rounded-md bg-amber-900/50 border border-amber-700/40">
-              <TrendingUp className="w-3.5 h-3.5 text-amber-400" />
-            </div>
-            <div>
-              <div className="panel-title text-amber-400">Thorp Seawater Absorption</div>
-              <p className="text-[9px] text-slate-500 mt-0.5">Quadratic Loss α(f) ∝ f² Frequency Response</p>
-            </div>
+      <div className="instrument-panel-header">
+        <div className="flex items-center gap-2">
+          <div
+            className="flex items-center justify-center rounded"
+            style={{
+              background: '#12232D',
+              border: '1px solid #20333D',
+              padding: '6px',
+            }}
+          >
+            <TrendingUp className="w-3.5 h-3.5" style={{ color: '#D9A441' }} />
           </div>
-          <div className="hud-chip bg-amber-950/70 text-amber-400 border-amber-700/50">
-            {animAlpha} dB/km
+          <div>
+            <div className="instrument-panel-title">Thorp Seawater Absorption</div>
+            <p className="text-[10px] text-slate-500 font-sans mt-0.5">Quadratic Loss α(f) ∝ f² Frequency Response</p>
           </div>
+        </div>
+        <div className="hud-chip">
+          {animAlpha} dB/km
         </div>
       </div>
 
       {/* SVG Chart Container */}
       <div className="px-3 pb-2 flex-1 flex flex-col justify-between">
-        <div className="relative rounded-lg border border-white/[0.06] bg-black/40 p-1 flex items-center justify-center overflow-hidden">
+        <div
+          className="relative rounded p-1 flex items-center justify-center overflow-hidden"
+          style={{
+            background: '#091319',
+            border: '1px solid var(--border-subtle)',
+          }}
+        >
           <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-28 overflow-visible select-none">
-            <defs>
-              <linearGradient id="thorpGrad" x1="0" y1="1" x2="0" y2="0">
-                <stop offset="0%" stopColor="rgba(245, 166, 35, 0.05)" />
-                <stop offset="100%" stopColor="rgba(244, 63, 94, 0.25)" />
-              </linearGradient>
-            </defs>
-
             {/* Grid lines */}
             {[30, 60, 90, 120].map((a) => (
               <g key={`y-${a}`}>
-                <line x1={pad.left} y1={mapY(a)} x2={pad.left + plotW} y2={mapY(a)} stroke="rgba(255,255,255,0.05)" />
+                <line x1={pad.left} y1={mapY(a)} x2={pad.left + plotW} y2={mapY(a)} stroke="rgba(255,255,255,0.04)" />
                 <text x={pad.left - 4} y={mapY(a) + 3} textAnchor="end" className="text-[7px] fill-slate-500 font-mono">
                   {a}
                 </text>
@@ -91,7 +95,7 @@ export const AbsorptionCurve: React.FC<AbsorptionCurveProps> = ({
 
             {[100, 250, 400].map((f) => (
               <g key={`x-${f}`}>
-                <line x1={mapX(f)} y1={pad.top} x2={mapX(f)} y2={pad.top + plotH} stroke="rgba(255,255,255,0.05)" />
+                <line x1={mapX(f)} y1={pad.top} x2={mapX(f)} y2={pad.top + plotH} stroke="rgba(255,255,255,0.04)" />
                 <text x={mapX(f)} y={pad.top + plotH + 11} textAnchor="middle" className="text-[7px] fill-slate-500 font-mono">
                   {f}k
                 </text>
@@ -112,7 +116,7 @@ export const AbsorptionCurve: React.FC<AbsorptionCurveProps> = ({
                     width={Math.max(2, x2 - x1)}
                     height={plotH}
                     fill={b.color}
-                    opacity={isActive ? 0.22 : 0.06}
+                    opacity={isActive ? 0.25 : 0.08}
                   />
                 );
               })}
@@ -121,39 +125,40 @@ export const AbsorptionCurve: React.FC<AbsorptionCurveProps> = ({
             <path
               d={curvePoints}
               fill="none"
-              stroke="#fbbf24"
+              stroke="#D9A441"
               strokeWidth={2}
-              style={{ filter: 'drop-shadow(0 0 4px rgba(251,191,36,0.5))' }}
             />
 
             {/* Operating Point Indicator */}
-            <line x1={activeX} y1={pad.top} x2={activeX} y2={pad.top + plotH} stroke="rgba(255,255,255,0.4)" strokeDasharray="2 2" />
-            <circle cx={activeX} cy={activeY} r={5} fill="rgba(251,191,36,0.3)" />
+            <line x1={activeX} y1={pad.top} x2={activeX} y2={pad.top + plotH} stroke="rgba(255,255,255,0.3)" strokeDasharray="2 2" />
+            <circle cx={activeX} cy={activeY} r={4.5} fill="rgba(217, 164, 65, 0.25)" stroke="#D9A441" strokeWidth={1} />
             <circle
               cx={activeX}
               cy={activeY}
-              r={3}
-              fill={mode === 'rc-css' ? activeBand.color : '#f43f5e'}
-              style={{ filter: 'drop-shadow(0 0 6px rgba(255,255,255,0.8))' }}
+              r={2.5}
+              fill={mode === 'rc-css' ? '#43C7D9' : '#D96B6B'}
             />
           </svg>
         </div>
 
         {/* Insight callout footer */}
-        <div className="pt-2 text-[10px] font-mono flex items-center justify-between text-slate-400">
+        <div
+          className="pt-2 text-[10px] font-mono flex items-center justify-between"
+          style={{ color: 'var(--text-secondary)' }}
+        >
           <span className="flex items-center gap-1.5">
             {mode === 'rc-css' ? (
-              <Sparkles className="w-3 h-3 text-emerald-400" />
+              <Sparkles className="w-3 h-3" style={{ color: '#63C79A' }} />
             ) : (
-              <ShieldAlert className="w-3 h-3 text-rose-400" />
+              <ShieldAlert className="w-3 h-3" style={{ color: '#D96B6B' }} />
             )}
-            <span className={mode === 'rc-css' ? 'text-emerald-300' : 'text-rose-300'}>
+            <span style={{ color: mode === 'rc-css' ? '#63C79A' : '#D96B6B' }}>
               {mode === 'rc-css'
                 ? `Active Band α: ${currentAlpha.toFixed(0)} dB/km (Controlled)`
-                : `Conventional CW: ${currentAlpha.toFixed(0)} dB/km (Severe Attenuation)`}
+                : `Conventional CW: ${currentAlpha.toFixed(0)} dB/km (High Attenuation)`}
             </span>
           </span>
-          <span className="text-[9px] text-slate-500">MgSO₄ Relaxation</span>
+          <span className="text-[9px]" style={{ color: 'var(--text-dim)' }}>MgSO₄ Relaxation</span>
         </div>
       </div>
     </div>

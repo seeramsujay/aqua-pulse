@@ -78,34 +78,38 @@ export const SoundSpeedProfile: React.FC<SoundSpeedProfileProps> = ({ layers, au
   const animSalinity = useAnimatedValue(currentAuvProps.salinity, 250, 1);
 
   return (
-    <div className="glass-panel panel-accent-cyan flex flex-col h-full overflow-hidden">
-      <div className="px-4 pt-3.5">
-        <div className="panel-header">
-          <div className="flex items-center gap-2">
-            <div className="p-1.5 rounded-md bg-cyan-900/50 border border-cyan-700/40">
-              <Waves className="w-3.5 h-3.5 text-cyan-400" />
-            </div>
-            <div>
-              <div className="panel-title text-cyan-400">Sound Speed Profile</div>
-              <p className="text-[9px] text-slate-500 mt-0.5">Mackenzie-1981 Stratification c(z)</p>
-            </div>
+    <div className="instrument-panel flex flex-col h-full overflow-hidden">
+      <div className="instrument-panel-header">
+        <div className="flex items-center gap-2">
+          <div
+            className="flex items-center justify-center rounded"
+            style={{
+              background: '#12232D',
+              border: '1px solid #20333D',
+              padding: '6px',
+            }}
+          >
+            <Waves className="w-3.5 h-3.5" style={{ color: '#43C7D9' }} />
           </div>
-          <div className="hud-chip bg-cyan-950/70 text-cyan-400 border-cyan-700/50">c(z) m/s</div>
+          <div>
+            <div className="instrument-panel-title">Sound Speed Profile</div>
+            <p className="text-[10px] text-slate-500 font-sans mt-0.5">Mackenzie-1981 Stratification c(z)</p>
+          </div>
         </div>
+        <div className="hud-chip">c(z) m/s</div>
       </div>
 
       {/* SVG Chart */}
       <div className="relative flex-1 flex items-center justify-center px-2 pb-2">
-        <svg width={svgWidth} height={svgHeight} className="overflow-visible select-none">
+        <svg
+          viewBox={`0 0 ${svgWidth} ${svgHeight}`}
+          className="w-full h-full max-h-[460px] overflow-visible select-none"
+        >
           <defs>
             <linearGradient id="speedAreaGrad" x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0%" stopColor="rgba(0,240,255,0.10)" />
-              <stop offset="100%" stopColor="rgba(0,240,255,0)" />
+              <stop offset="0%" stopColor="rgba(67, 199, 217, 0.12)" />
+              <stop offset="100%" stopColor="rgba(67, 199, 217, 0.0)" />
             </linearGradient>
-            <filter id="cyanGlow">
-              <feGaussianBlur stdDeviation="2.5" result="blur" />
-              <feComposite in="SourceGraphic" in2="blur" operator="over" />
-            </filter>
           </defs>
 
           {/* Layer background shading */}
@@ -114,13 +118,13 @@ export const SoundSpeedProfile: React.FC<SoundSpeedProfileProps> = ({ layers, au
             const y2 = mapDepthToY(layer.depthEnd);
             return (
               <g key={layer.id}>
-                <rect x={pad.left} y={y1} width={plotW} height={y2 - y1} fill={layer.color} opacity={0.4} />
+                <rect x={pad.left} y={y1} width={plotW} height={y2 - y1} fill={layer.color} opacity={0.3} />
                 <line
                   x1={pad.left}
                   y1={y2}
                   x2={pad.left + plotW}
                   y2={y2}
-                  stroke="rgba(255,255,255,0.08)"
+                  stroke="rgba(255,255,255,0.06)"
                   strokeDasharray="3 3"
                 />
               </g>
@@ -135,13 +139,13 @@ export const SoundSpeedProfile: React.FC<SoundSpeedProfileProps> = ({ layers, au
                 y1={mapDepthToY(d)}
                 x2={pad.left + plotW}
                 y2={mapDepthToY(d)}
-                stroke="rgba(255,255,255,0.05)"
+                stroke="rgba(255,255,255,0.04)"
               />
               <text
                 x={pad.left - 6}
                 y={mapDepthToY(d) + 3}
                 textAnchor="end"
-                style={{ fontSize: 8, fill: 'rgba(100,116,139,0.8)', fontFamily: 'JetBrains Mono,monospace' }}
+                style={{ fontSize: 8, fill: 'var(--text-muted)', fontFamily: 'JetBrains Mono,monospace' }}
               >
                 {d}m
               </text>
@@ -162,7 +166,7 @@ export const SoundSpeedProfile: React.FC<SoundSpeedProfileProps> = ({ layers, au
                 x={mapSpeedToX(s)}
                 y={pad.top + plotH + 14}
                 textAnchor="middle"
-                style={{ fontSize: 8, fill: 'rgba(0,240,255,0.5)', fontFamily: 'JetBrains Mono,monospace' }}
+                style={{ fontSize: 8, fill: '#43C7D9', fontFamily: 'JetBrains Mono,monospace' }}
               >
                 {s}
               </text>
@@ -173,11 +177,10 @@ export const SoundSpeedProfile: React.FC<SoundSpeedProfileProps> = ({ layers, au
           <path d={speedAreaPath} fill="url(#speedAreaGrad)" />
 
           {/* Temperature dashed curve */}
-          <path d={tempPath} fill="none" stroke="#f97316" strokeWidth={1.5} strokeDasharray="3 3" opacity={0.55} />
+          <path d={tempPath} fill="none" stroke="#D9A441" strokeWidth={1.5} strokeDasharray="3 3" opacity={0.6} />
 
-          {/* Sound speed curve with glow */}
-          <path d={speedPath} fill="none" stroke="#00f0ff" strokeWidth={2.5} filter="url(#cyanGlow)" />
-          <path d={speedPath} fill="none" stroke="#00f0ff" strokeWidth={2} />
+          {/* Sound speed curve */}
+          <path d={speedPath} fill="none" stroke="#43C7D9" strokeWidth={2} />
 
           {/* AUV depth indicator */}
           <line
@@ -185,7 +188,7 @@ export const SoundSpeedProfile: React.FC<SoundSpeedProfileProps> = ({ layers, au
             y1={auvY}
             x2={pad.left + plotW}
             y2={auvY}
-            stroke="rgba(234,179,8,0.7)"
+            stroke="rgba(217, 164, 65, 0.7)"
             strokeWidth={1}
             strokeDasharray="4 3"
           />
@@ -193,37 +196,35 @@ export const SoundSpeedProfile: React.FC<SoundSpeedProfileProps> = ({ layers, au
           <circle
             cx={mapSpeedToX(currentAuvProps.soundSpeed)}
             cy={auvY}
-            r={6}
-            fill="rgba(234,179,8,0.15)"
-            stroke="rgba(234,179,8,0.5)"
+            r={5}
+            fill="rgba(217, 164, 65, 0.2)"
+            stroke="rgba(217, 164, 65, 0.6)"
             strokeWidth={1}
           />
-          <circle cx={mapSpeedToX(currentAuvProps.soundSpeed)} cy={auvY} r={3.5} fill="#eab308" />
+          <circle cx={mapSpeedToX(currentAuvProps.soundSpeed)} cy={auvY} r={3} fill="#D9A441" />
         </svg>
       </div>
 
       {/* Telemetry readout footer */}
-      <div className="px-4 pb-3.5 pt-2 border-t border-white/[0.06] space-y-2">
+      <div className="px-4 pb-3 pt-2" style={{ borderTop: '1px solid var(--border-subtle)' }}>
         <div className="grid grid-cols-3 gap-2">
           <div className="telemetry-cell">
-            <div className="telemetry-label text-cyan-500/70">c(z)</div>
-            <div className="telemetry-value text-cyan-300 text-base">{animSpeed}</div>
-            <div className="text-[8px] text-slate-600 mt-0.5">m/s</div>
+            <div className="telemetry-label">c(z)</div>
+            <div className="telemetry-value" style={{ color: '#43C7D9' }}>{animSpeed}</div>
+            <div className="text-[9px] font-mono text-slate-500 mt-0.5">m/s</div>
           </div>
           <div className="telemetry-cell">
-            <div className="telemetry-label text-orange-500/70">Temp</div>
-            <div className="telemetry-value text-orange-300 text-base">{animTemp}</div>
-            <div className="text-[8px] text-slate-600 mt-0.5">°C</div>
+            <div className="telemetry-label">Temp</div>
+            <div className="telemetry-value" style={{ color: '#D9A441' }}>{animTemp}</div>
+            <div className="text-[9px] font-mono text-slate-500 mt-0.5">°C</div>
           </div>
           <div className="telemetry-cell">
-            <div className="telemetry-label text-slate-500">Salinity</div>
-            <div className="telemetry-value text-slate-300 text-base">{animSalinity}</div>
-            <div className="text-[8px] text-slate-600 mt-0.5">PSU</div>
+            <div className="telemetry-label">Salinity</div>
+            <div className="telemetry-value" style={{ color: 'var(--text-primary)' }}>{animSalinity}</div>
+            <div className="text-[9px] font-mono text-slate-500 mt-0.5">PSU</div>
           </div>
         </div>
       </div>
     </div>
   );
 };
-
-// EOF: src/components/telemetry/SoundSpeedProfile.tsx

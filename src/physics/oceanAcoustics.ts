@@ -112,7 +112,8 @@ export function traceAcousticRay(
   terrainType: string,
   mode: 'rc-css' | 'traditional-cw',
   maxDistanceM: number = 3200,
-  turbidityNTU: number = 0
+  turbidityNTU: number = 0,
+  terrainElevation: number = 0
 ): AcousticRay {
   const segments: RaySegment[] = [];
   const ds = 12; // Step size in meters
@@ -169,8 +170,8 @@ export function traceAcousticRay(
       angleRad = -angleRad; // Bounce downwards
     }
 
-    // Seafloor collision check
-    const seafloorZ = getSeafloorDepth(currX, terrainType);
+    // Seafloor collision check with terrain elevation
+    const seafloorZ = Math.max(150, getSeafloorDepth(currX, terrainType) - terrainElevation);
     if (currZ >= seafloorZ) {
       currZ = seafloorZ;
 
@@ -236,23 +237,9 @@ export function traceAcousticRay(
     }
 
     const currentTL = calculateTransmissionLoss(totalDistance, freqKHz, turbidityNTU);
-    if (currentTL > maxAllowableTL * 1.4) {
-      // Ray dissipated completely
-      segments.push({
-        x1: prevX,
-        y1: prevZ,
-        x2: currX,
-        y2: currZ,
-        timeMs: totalTimeMs,
-        attenuationDb: currentTL,
-        intensity: 0.05,
-        freqKHz,
-        color,
-        isReflected: false,
-        isSeafloorHit: false,
-        isLostInShadow: true
-      });
-      break;
+    const isAttenuated = currentTL > maxAllowableTL * 1.4;
+    if (isAttenuated) {
+      isLostInShadow = true;
     }
 
     segments.push({
