@@ -14,6 +14,13 @@ interface OceanCanvasProps {
   isAutoPinging: boolean;
   turbidity?: number;
   triggerPingRef?: React.MutableRefObject<(() => void) | null>;
+  /** Autonomous mission mode: world-scrolling offset in meters */
+  worldOffsetX?: number;
+  /** Whether the autonomous mission is active (disables manual control) */
+  isMissionActive?: boolean;
+  /** Collision warning distance (meters below AUV to seafloor ahead) */
+  collisionWarning?: boolean;
+  collisionDistanceM?: number | null;
 }
 
 interface OceanParticle {
@@ -38,6 +45,10 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
   isAutoPinging,
   turbidity = 12.0,
   triggerPingRef,
+  worldOffsetX = 0,
+  isMissionActive = false,
+  collisionWarning = false,
+  collisionDistanceM = null,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [rays, setRays] = useState<AcousticRay[]>([]);
@@ -45,10 +56,16 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
   const pingWaveRadiiRef = useRef<number[]>([]);
   const animationFrameRef = useRef<number | null>(null);
   const particlesRef = useRef<OceanParticle[]>([]);
+  const [collisionDismissed, setCollisionDismissed] = useState(false);
 
   // Ocean coordinate system bounds
   const WORLD_WIDTH_M = 2000;
   const WORLD_DEPTH_M = 1500;
+
+  // Reset collision dismissed state when warning clears
+  useEffect(() => {
+    if (!collisionWarning) setCollisionDismissed(false);
+  }, [collisionWarning]);
 
   // Initialize environmental ocean particles once
   useEffect(() => {
@@ -196,10 +213,17 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
       const w = canvas.width;
       const h = canvas.height;
 
-      // Coordinate transforms
-      const scaleX = (x: number) => (x / WORLD_WIDTH_M) * w;
+      // ── Coordinate transforms ──
+      // In mission mode: worldOffsetX shifts the terrain; AUV stays centered horizontally
+      const offsetX = isMissionActive ? worldOffsetX : 0;
+
+      const scaleX = (x: number) => ((x - offsetX) / WORLD_WIDTH_M) * w;
       const scaleY = (z: number) => (z / WORLD_DEPTH_M) * h;
-      const unscaleX = (px: number) => (px / w) * WORLD_WIDTH_M;
+      const unscaleX = (px: number) => (px / w) * WORLD_WIDTH_M + offsetX;
+
+      // AUV always draws at its submersible.x position
+      // In mission mode, submersible.x is set to offsetX + WORLD_WIDTH_M/2 by App.tsx
+      // so scaleX(submersible.x) → center of canvas
 
       // Clear Canvas
       ctx.fillStyle = '#071018';
@@ -220,7 +244,7 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
           grad.addColorStop(1, 'rgba(12, 20, 36, 0.75)');
         } else if (layer.id.includes('sofar')) {
           grad.addColorStop(0, 'rgba(12, 20, 36, 0.75)');
-          grad.addColorStop(0.5, 'rgba(25, 22, 60, 0.85)'); // SOFAR channel axis subtle indigo tint
+          grad.addColorStop(0.5, 'rgba(25, 22, 60, 0.85)');
           grad.addColorStop(1, 'rgba(12, 20, 36, 0.85)');
         } else {
           grad.addColorStop(0, 'rgba(12, 20, 36, 0.85)');
@@ -259,7 +283,9 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
           ctx.lineWidth = 1.2;
           ctx.beginPath();
           for (let x = 0; x <= w; x += 10) {
-            const waveY = yBound + Math.sin(x * 0.015 + time * 1.5 + idx) * 3.5;
+            // In mission mode, shift the wave pattern with world offset
+            const worldPhase = isMissionActive ? (offsetX * 0.01) : 0;
+            const waveY = yBound + Math.sin(x * 0.015 + time * 1.5 + idx + worldPhase) * 3.5;
             if (x === 0) ctx.moveTo(x, waveY);
             else ctx.lineTo(x, waveY);
           }
@@ -278,7 +304,13 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
           if (p.y < 0) p.y = WORLD_DEPTH_M;
           if (p.y > WORLD_DEPTH_M) p.y = 0;
 
-          const px = scaleX(p.x);
+          // In mission mode, shift particles with the world
+          const particleWorldX = isMissionActive ? p.x + offsetX : p.x;
+          const px = scaleX(particleWorldX);
+
+          // Only draw if on-screen
+          if (px < -10 || px > w + 10) return;
+
           const py = scaleY(p.y);
 
           ctx.beginPath();
@@ -319,12 +351,15 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
       }
 
       // 5. Render Realistic Seafloor Terrain
+      // In mission mode, query terrain using the world-offset coordinate
       const seafloorPath = new Path2D();
       seafloorPath.moveTo(0, h);
       const stepPx = 8;
       for (let px = 0; px <= w; px += stepPx) {
         const worldX = unscaleX(px);
-        const depthM = getSeafloorDepth(worldX, terrainType, WORLD_WIDTH_M);
+        // Wrap worldX into valid terrain range for getSeafloorDepth
+        const wrappedX = ((worldX % WORLD_WIDTH_M) + WORLD_WIDTH_M) % WORLD_WIDTH_M;
+        const depthM = getSeafloorDepth(wrappedX, terrainType, WORLD_WIDTH_M);
         const py = scaleY(depthM);
         if (px === 0) seafloorPath.lineTo(px, py);
         else seafloorPath.lineTo(px, py);
@@ -444,7 +479,7 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
 
       // Submersible Ambient Glow Halo
       ctx.shadowColor = '#00f0ff';
-      ctx.shadowBlur = isDraggingAuv ? 20 : 10;
+      ctx.shadowBlur = isMissionActive ? 14 : (isDraggingAuv ? 20 : 10);
 
       // Main Hull Ellipse
       ctx.fillStyle = '#0f172a';
@@ -521,6 +556,14 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
         auvCanvasY - 18
       );
 
+      // 10. Mission Mode HUD overlay — Mission Phase & Scroll Progress
+      if (isMissionActive) {
+        // World offset indicator (top-left)
+        ctx.font = 'bold 10px JetBrains Mono, monospace';
+        ctx.fillStyle = 'rgba(67, 199, 217, 0.7)';
+        ctx.fillText(`▸ AUTONOMOUS MISSION · RANGE: ${Math.round(worldOffsetX)}m`, 16, h - 14);
+      }
+
       // Loop animation
       animationFrameRef.current = requestAnimationFrame(render);
     };
@@ -532,10 +575,11 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
         cancelAnimationFrame(animationFrameRef.current);
       }
     };
-  }, [layers, terrainType, mode, activeBand, rays, submersible, isDraggingAuv]);
+  }, [layers, terrainType, mode, activeBand, rays, submersible, isDraggingAuv, worldOffsetX, isMissionActive]);
 
-  // Mouse drag handler for AUV repositioning
+  // Mouse drag handler for AUV repositioning (disabled in mission mode)
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (isMissionActive) return; // No manual control during autonomous mission
     const canvas = canvasRef.current;
     if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
@@ -552,6 +596,7 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
   };
 
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (isMissionActive) return; // No manual control during autonomous mission
     const canvas = canvasRef.current;
     if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
@@ -588,6 +633,43 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
         c(z) = {currentSoundSpeed.toFixed(1)} m/s
       </div>
 
+      {/* Collision Warning Overlay — Critical Red Alert */}
+      {isMissionActive && collisionWarning && !collisionDismissed && (
+        <div
+          className="absolute top-2 left-1/2 -translate-x-1/2 z-20 flex items-center gap-3 px-5 py-2.5 rounded-md"
+          style={{
+            background: 'rgba(220, 38, 38, 0.15)',
+            border: '1px solid rgba(239, 68, 68, 0.6)',
+            backdropFilter: 'blur(8px)',
+            animation: 'pulse 1.5s ease-in-out infinite',
+          }}
+        >
+          <span
+            className="w-2.5 h-2.5 rounded-full shrink-0"
+            style={{ background: '#ef4444', boxShadow: '0 0 8px #ef4444' }}
+          />
+          <div className="flex flex-col">
+            <span className="font-mono font-bold text-[11px] tracking-wider" style={{ color: '#fca5a5' }}>
+              TERRAIN PROXIMITY WARNING
+            </span>
+            <span className="font-mono text-[10px]" style={{ color: '#fecaca' }}>
+              Seafloor {collisionDistanceM !== null ? `${Math.round(collisionDistanceM)}m` : '--'} below AUV at forward look-ahead
+            </span>
+          </div>
+          <button
+            onClick={() => setCollisionDismissed(true)}
+            className="ml-2 px-2 py-0.5 rounded text-[9px] font-mono font-bold cursor-pointer transition-colors"
+            style={{
+              background: 'rgba(239, 68, 68, 0.25)',
+              border: '1px solid rgba(239, 68, 68, 0.4)',
+              color: '#fca5a5',
+            }}
+          >
+            DISMISS
+          </button>
+        </div>
+      )}
+
       {/* Main Canvas Viewport */}
       <canvas
         ref={canvasRef}
@@ -597,7 +679,7 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
-        className="w-full h-full cursor-crosshair select-none"
+        className={`w-full h-full select-none ${isMissionActive ? 'cursor-default' : 'cursor-crosshair'}`}
       />
 
       {/* Bottom Floating Legend */}

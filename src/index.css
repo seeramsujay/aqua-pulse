@@ -58,6 +58,44 @@ body {
 ::-webkit-scrollbar-thumb:hover { background: rgba(67, 199, 217, 0.35); }
 
 /* ──────────────────────────────────────────────
+   Keyframe Animations
+   ────────────────────────────────────────────── */
+@keyframes pulse-glow {
+  0%, 100% { opacity: 1; box-shadow: 0 0 4px currentColor; }
+  50% { opacity: 0.6; box-shadow: 0 0 12px currentColor; }
+}
+
+@keyframes scan-line {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100vh); }
+}
+
+@keyframes subtle-breathe {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+}
+
+@keyframes border-glow-pulse {
+  0%, 100% { border-color: var(--cyan-muted); box-shadow: 0 0 0 0 rgba(67, 199, 217, 0); }
+  50% { border-color: var(--cyan); box-shadow: 0 0 8px 0 rgba(67, 199, 217, 0.15); }
+}
+
+@keyframes slide-in-right {
+  from { opacity: 0; transform: translateX(10px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes mission-progress-shine {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+@keyframes data-update-flash {
+  0% { background-color: rgba(67, 199, 217, 0.08); }
+  100% { background-color: transparent; }
+}
+
+/* ──────────────────────────────────────────────
    Instrument Component Classes
    ────────────────────────────────────────────── */
 @layer components {
@@ -66,6 +104,32 @@ body {
     background: var(--bg-panel);
     border: 1px solid var(--border-default);
     border-radius: 6px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* Subtle corner accent lines on panels */
+  .instrument-panel::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 24px;
+    height: 1px;
+    background: linear-gradient(90deg, var(--cyan-muted), transparent);
+    pointer-events: none;
+    z-index: 1;
+  }
+  .instrument-panel::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 1px;
+    height: 24px;
+    background: linear-gradient(180deg, var(--cyan-muted), transparent);
+    pointer-events: none;
+    z-index: 1;
   }
 
   .instrument-panel-header {
@@ -90,6 +154,10 @@ body {
     border: 1px solid var(--border-subtle);
     border-radius: 4px;
     padding: 8px 10px;
+    transition: border-color 0.3s ease, background-color 0.3s ease;
+  }
+  .telemetry-cell:hover {
+    border-color: var(--border-strong);
   }
 
   .telemetry-label {
@@ -117,6 +185,14 @@ body {
     display: inline-block;
   }
 
+  .status-dot-live {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    display: inline-block;
+    animation: pulse-glow 2s ease-in-out infinite;
+  }
+
   .hud-chip {
     display: inline-flex;
     align-items: center;
@@ -139,15 +215,17 @@ body {
     background: var(--bg-inset);
     padding: 8px 10px;
     cursor: pointer;
-    transition: border-color 0.15s ease;
+    transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
     text-align: left;
   }
   .freq-channel:hover {
     border-color: var(--border-strong);
+    background: var(--bg-elevated);
   }
   .freq-channel.active {
     background: var(--bg-elevated);
     border-color: var(--cyan-muted);
+    box-shadow: 0 0 6px rgba(67, 199, 217, 0.1);
   }
 
   .toggle-track {
@@ -191,6 +269,76 @@ body {
     border-radius: 2px;
     transition: width 0.5s ease;
   }
+
+  /* ── Mission Progress Bar ── */
+  .mission-progress-bar {
+    height: 3px;
+    border-radius: 2px;
+    background: var(--border-subtle);
+    overflow: hidden;
+    position: relative;
+  }
+  .mission-progress-fill {
+    height: 100%;
+    border-radius: 2px;
+    background: linear-gradient(90deg, #63C79A, #43C7D9, #9B8EC4);
+    background-size: 200% 100%;
+    animation: mission-progress-shine 3s linear infinite;
+    transition: width 0.3s ease;
+  }
+
+  /* ── Mission Phase Indicator ── */
+  .mission-phase-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    border: 2px solid var(--border-default);
+    transition: all 0.3s ease;
+  }
+  .mission-phase-dot.active {
+    border-color: var(--cyan);
+    background: var(--cyan);
+    box-shadow: 0 0 8px rgba(67, 199, 217, 0.4);
+  }
+  .mission-phase-dot.complete {
+    border-color: var(--positive);
+    background: var(--positive);
+  }
+
+  /* ── Data Flash Animation ── */
+  .data-flash {
+    animation: data-update-flash 0.6s ease-out;
+  }
+
+  /* ── Mini Event Entry ── */
+  .mini-event-entry {
+    animation: slide-in-right 0.3s ease-out;
+    padding: 4px 6px;
+    border-radius: 3px;
+    background: var(--bg-inset);
+    border: 1px solid var(--border-subtle);
+    font-size: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text-secondary);
+    transition: background-color 0.2s ease;
+  }
+  .mini-event-entry:hover {
+    background: var(--bg-elevated);
+  }
+
+  /* ── Glassmorphism overlay panel ── */
+  .glass-panel {
+    background: rgba(11, 23, 32, 0.75);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(32, 51, 61, 0.6);
+    border-radius: 6px;
+  }
+
+  /* ── Active glow border for mission panels ── */
+  .mission-active-panel {
+    animation: border-glow-pulse 2.5s ease-in-out infinite;
+  }
 }
 
 /* ──────────────────────────────────────────────
@@ -207,4 +355,25 @@ svg text {
 ::selection {
   background-color: rgba(67, 199, 217, 0.2);
   color: #E7EEF1;
+}
+
+/* ──────────────────────────────────────────────
+   Subtle Scan-Line Effect for Scientific Feel
+   ────────────────────────────────────────────── */
+.scan-line-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 9999;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.015) 2px,
+    rgba(0, 0, 0, 0.015) 4px
+  );
+  opacity: 0.6;
 }

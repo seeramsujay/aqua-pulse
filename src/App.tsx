@@ -5,8 +5,10 @@ import {
   calculateThorpAttenuation,
   calculateCssProcessingGain,
   getOceanPropertiesAtDepth,
+  getSeafloorDepth,
 } from './physics/oceanAcoustics';
 import { SCENARIO_PRESETS } from './physics/presets';
+import { MissionSimulator } from './simulation/MissionSimulator';
 import { Navbar } from './components/common/Navbar';
 import { BootSequence } from './components/common/BootSequence';
 import { MissionContextBar } from './components/common/MissionContextBar';
@@ -40,6 +42,11 @@ import {
   Droplets,
   Layers,
   Anchor,
+  Terminal,
+  AlertTriangle,
+  Navigation,
+  Crosshair,
+  Zap,
 } from 'lucide-react';
 
 // Sleek Instrument Toggle Switch Component matching mockup
@@ -106,6 +113,15 @@ export function App() {
   });
 
   const triggerPingRef = useRef<(() => void) | null>(null);
+
+  // ── Autonomous Mission Simulation State ──
+  const missionSimRef = useRef<MissionSimulator>(new MissionSimulator());
+  const missionRafRef = useRef<number | null>(null);
+  const [isMissionRunning, setIsMissionRunning] = useState<boolean>(false);
+  const [missionWorldOffsetX, setMissionWorldOffsetX] = useState<number>(0);
+  const [missionCollisionWarning, setMissionCollisionWarning] = useState<boolean>(false);
+  const [missionCollisionDistanceM, setMissionCollisionDistanceM] = useState<number | null>(null);
+  const [missionPhaseLabel, setMissionPhaseLabel] = useState<string>('');
 
   const [echoes, setEchoes] = useState<EchoReturn[]>([]);
   const [soundings, setSoundings] = useState<BathymetryPoint[]>([]);
@@ -207,20 +223,96 @@ export function App() {
       if (e.code === 'Space') {
         e.preventDefault();
         triggerPingWithAudio();
-      } else if (e.code === 'ArrowRight') {
-        setSubmersible((prev) => ({ ...prev, x: Math.min(1900, prev.x + 30) }));
-      } else if (e.code === 'ArrowLeft') {
-        setSubmersible((prev) => ({ ...prev, x: Math.max(100, prev.x - 30) }));
-      } else if (e.code === 'ArrowUp') {
-        setSubmersible((prev) => ({ ...prev, depth: Math.max(30, prev.depth - 25) }));
-      } else if (e.code === 'ArrowDown') {
-        setSubmersible((prev) => ({ ...prev, depth: Math.min(1300, prev.depth + 25) }));
+      }
+      // Arrow key manual control disabled during autonomous mission
+      if (!isMissionRunning) {
+        if (e.code === 'ArrowRight') {
+          setSubmersible((prev) => ({ ...prev, x: Math.min(1900, prev.x + 30) }));
+        } else if (e.code === 'ArrowLeft') {
+          setSubmersible((prev) => ({ ...prev, x: Math.max(100, prev.x - 30) }));
+        } else if (e.code === 'ArrowUp') {
+          setSubmersible((prev) => ({ ...prev, depth: Math.max(30, prev.depth - 25) }));
+        } else if (e.code === 'ArrowDown') {
+          setSubmersible((prev) => ({ ...prev, depth: Math.min(1300, prev.depth + 25) }));
+        }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [triggerPingWithAudio]);
+  }, [triggerPingWithAudio, isMissionRunning]);
+
+  // ── Autonomous Mission Simulation Loop ──
+  const startMission = useCallback(() => {
+    const sim = missionSimRef.current;
+    sim.setTerrainQuery(getSeafloorDepth, activeScenario.terrainType);
+    const startEvents = sim.start();
+    startEvents.forEach((evt) => addMissionEvent(evt));
+    setIsMissionRunning(true);
+    setIsAutoPinging(true); // Enable auto-pinging during mission
+    setAutoRoll(false); // Disable auto-roll; mission controls channels
+
+    const missionLoop = () => {
+      const { state, events } = sim.tick();
+
+      // Update submersible position: AUV stays at world center
+      setSubmersible((prev) => ({
+        ...prev,
+        x: state.worldOffsetX + 1000, // Center of the 2000m world
+        depth: state.currentDepth,
+      }));
+
+      // Update world offset for scrolling
+      setMissionWorldOffsetX(state.worldOffsetX);
+
+      // Update collision state
+      setMissionCollisionWarning(state.collisionWarning);
+      setMissionCollisionDistanceM(state.collisionDistanceM);
+      setMissionPhaseLabel(state.currentPhase.label);
+
+      // Update environment knobs from mission phase
+      setTurbidity(state.currentPhase.environment.turbidity);
+      setTemperature(state.currentPhase.environment.temperature);
+      setSalinity(state.currentPhase.environment.salinity);
+
+      // Switch channel based on mission phase
+      setActiveBandIndex(state.currentPhase.channelIndex);
+
+      // Emit queued events
+      events.forEach((evt) => addMissionEvent(evt));
+
+      if (state.isRunning && !state.missionComplete) {
+        missionRafRef.current = requestAnimationFrame(missionLoop);
+      } else {
+        // Mission ended
+        setIsMissionRunning(false);
+        setIsAutoPinging(false);
+      }
+    };
+
+    missionRafRef.current = requestAnimationFrame(missionLoop);
+  }, [activeScenario.terrainType, addMissionEvent]);
+
+  const stopMission = useCallback(() => {
+    const sim = missionSimRef.current;
+    const stopEvents = sim.stop();
+    stopEvents.forEach((evt) => addMissionEvent(evt));
+    setIsMissionRunning(false);
+    setIsAutoPinging(false);
+    if (missionRafRef.current) {
+      cancelAnimationFrame(missionRafRef.current);
+      missionRafRef.current = null;
+    }
+  }, [addMissionEvent]);
+
+  // Cleanup mission on unmount
+  useEffect(() => {
+    return () => {
+      if (missionRafRef.current) {
+        cancelAnimationFrame(missionRafRef.current);
+      }
+    };
+  }, []);
 
   const handleEchoDetected = useCallback(
     (returns: EchoReturn[] | EchoReturn) => {
@@ -303,6 +395,9 @@ export function App() {
 
   return (
     <div className="min-h-screen text-slate-100 flex flex-col font-sans" style={{ background: '#071018' }}>
+      {/* Subtle CRT Scan-Line Overlay */}
+      <div className="scan-line-overlay" />
+
       {/* Boot Sequence Overlay */}
       {isBooting && <BootSequence onComplete={() => setIsBooting(false)} />}
 
@@ -362,9 +457,17 @@ export function App() {
               {/* ── LEFT PANEL (≈ 260–290px) ── */}
               <div className="w-full lg:w-[275px] shrink-0 flex flex-col gap-3 overflow-y-auto pr-0.5 scrollbar-thin">
                 {/* MISSION STATUS */}
-                <div className="instrument-panel p-3.5 flex flex-col gap-3">
-                  <div className="text-[11px] font-semibold tracking-wider text-[#7E93A4] font-mono uppercase">
-                    MISSION STATUS
+                <div className={`instrument-panel p-3.5 flex flex-col gap-3 ${isMissionRunning ? 'mission-active-panel' : ''}`}>
+                  <div className="flex items-center justify-between">
+                    <div className="text-[11px] font-semibold tracking-wider text-[#7E93A4] font-mono uppercase">
+                      MISSION STATUS
+                    </div>
+                    {isMissionRunning && (
+                      <span className="flex items-center gap-1.5 text-[9px] font-mono font-bold tracking-wider" style={{ color: '#63C79A' }}>
+                        <span className="status-dot-live" style={{ backgroundColor: '#63C79A' }} />
+                        LIVE
+                      </span>
+                    )}
                   </div>
 
                   <div className="flex flex-col gap-3">
@@ -381,10 +484,10 @@ export function App() {
 
                     {/* CHANNEL */}
                     <div className="flex items-center gap-3">
-                      <Activity className="w-4 h-4 text-[#43C7D9] shrink-0" />
+                      <Activity className="w-4 h-4 shrink-0" style={{ color: activeBand.color }} />
                       <div className="flex flex-col">
                         <span className="text-[10px] font-mono uppercase text-[#7E93A4]">CHANNEL</span>
-                        <span className="text-[13px] font-bold font-mono text-slate-100 leading-tight">
+                        <span className="text-[13px] font-bold font-mono leading-tight" style={{ color: activeBand.color }}>
                           CH{activeBandIndex} · {activeBand.fStart}-{activeBand.fEnd} kHz
                         </span>
                       </div>
@@ -395,8 +498,10 @@ export function App() {
                       <Signal className="w-4 h-4 text-[#43C7D9] shrink-0" />
                       <div className="flex flex-col">
                         <span className="text-[10px] font-mono uppercase text-[#7E93A4]">SNR</span>
-                        <span className="text-[15px] font-bold font-mono text-slate-100 leading-tight">
-                          {latestEcho ? `${latestEcho.snrDb.toFixed(1)} dB` : '18.6 dB'}
+                        <span className="text-[15px] font-bold font-mono leading-tight" style={{
+                          color: latestEcho ? (latestEcho.snrDb > 8 ? '#63C79A' : latestEcho.snrDb > 3 ? '#D9A441' : '#D96B6B') : '#43C7D9'
+                        }}>
+                          {latestEcho ? `${latestEcho.snrDb > 0 ? '+' : ''}${latestEcho.snrDb.toFixed(1)} dB` : '18.6 dB'}
                         </span>
                       </div>
                     </div>
@@ -429,10 +534,23 @@ export function App() {
                       <div className="flex flex-col">
                         <span className="text-[10px] font-mono uppercase text-[#7E93A4]">STATE</span>
                         <span className="text-[14px] font-bold font-mono text-slate-100 leading-tight uppercase">
-                          {submersible.status === 'transmitting' ? 'PINGING' : submersible.status.toUpperCase()}
+                          {isMissionRunning ? 'AUTONOMOUS' : submersible.status === 'transmitting' ? 'PINGING' : submersible.status.toUpperCase()}
                         </span>
                       </div>
                     </div>
+
+                    {/* MISSION PHASE (shown during autonomous mission) */}
+                    {isMissionRunning && (
+                      <div className="flex items-center gap-3">
+                        <Sparkles className="w-4 h-4 text-[#D9A441] shrink-0" />
+                        <div className="flex flex-col">
+                          <span className="text-[10px] font-mono uppercase text-[#7E93A4]">MISSION PHASE</span>
+                          <span className="text-[12px] font-bold font-mono leading-tight" style={{ color: '#D9A441' }}>
+                            {missionPhaseLabel}
+                          </span>
+                        </div>
+                      </div>
+                    )}
 
                     {/* AUTO-SWEEP */}
                     <div className="flex items-center justify-between pt-1 border-t border-[#182935]">
@@ -448,6 +566,60 @@ export function App() {
                     </div>
                   </div>
                 </div>
+
+                {/* MISSION PHASE TIMELINE (shown during autonomous mission) */}
+                {isMissionRunning && (
+                  <div className="instrument-panel p-3.5 flex flex-col gap-2.5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 text-[11px] font-semibold tracking-wider text-[#7E93A4] font-mono uppercase">
+                        <Navigation className="w-3.5 h-3.5 text-[#43C7D9]" />
+                        <span>MISSION TIMELINE</span>
+                      </div>
+                      {missionCollisionWarning && (
+                        <span className="flex items-center gap-1 text-[9px] font-mono text-red-400 font-bold animate-pulse">
+                          <AlertTriangle className="w-3 h-3 text-red-400" />
+                          PROXIMITY
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center justify-between gap-1.5">
+                      {['Shallow', 'Thermocline', 'Deep'].map((phase, idx) => {
+                        const phaseColors = ['#9B8EC4', '#63C79A', '#D9A441'];
+                        const channelIndices = [2, 1, 0];
+                        const currentPhaseIdx = [2, 1, 0].indexOf(bands[activeBandIndex] ? activeBandIndex : 0);
+                        const isActive = channelIndices[idx] === activeBandIndex;
+                        const isComplete = idx < currentPhaseIdx;
+                        return (
+                          <div key={phase} className="flex flex-col items-center gap-1 flex-1">
+                            <div
+                              className={`mission-phase-dot ${isActive ? 'active' : ''} ${isComplete ? 'complete' : ''}`}
+                              style={isActive ? { borderColor: phaseColors[idx], background: phaseColors[idx], boxShadow: `0 0 8px ${phaseColors[idx]}60` } : {}}
+                            />
+                            <span className="text-[9px] font-mono" style={{ color: isActive ? phaseColors[idx] : 'var(--text-dim)' }}>
+                              {phase}
+                            </span>
+                            <span className="text-[8px] font-mono" style={{ color: 'var(--text-dim)' }}>
+                              CH{channelIndices[idx]}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {/* Progress bar */}
+                    <div className="mission-progress-bar mt-1">
+                      <div
+                        className="mission-progress-fill"
+                        style={{
+                          width: `${Math.min(100, (missionWorldOffsetX / 10000) * 100)}%`,
+                        }}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between text-[9px] font-mono" style={{ color: 'var(--text-dim)' }}>
+                      <span>RANGE: {Math.round(missionWorldOffsetX)}m</span>
+                      <span>{Math.min(100, Math.round((missionWorldOffsetX / 10000) * 100))}%</span>
+                    </div>
+                  </div>
+                )}
 
                 {/* ENVIRONMENT */}
                 <div className="instrument-panel p-3.5 flex flex-col gap-2.5">
@@ -480,7 +652,7 @@ export function App() {
                         <Layers className="w-3.5 h-3.5 text-[#43C7D9]" />
                         <span>Turbidity</span>
                       </span>
-                      <span className="font-semibold text-slate-100">{Math.round(turbidity)} NTU</span>
+                      <span className="font-semibold" style={{ color: turbidity > 30 ? '#D9A441' : 'var(--text-primary)' }}>{Math.round(turbidity)} NTU</span>
                     </div>
 
                     {/* AUV Depth */}
@@ -491,6 +663,41 @@ export function App() {
                       </span>
                       <span className="font-semibold text-slate-100">{Math.round(submersible.depth)} m</span>
                     </div>
+                  </div>
+                </div>
+
+                {/* LIVE EVENT FEED (last 3 events) */}
+                <div className="instrument-panel p-3.5 flex flex-col gap-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Terminal className="w-3.5 h-3.5 text-[#43C7D9]" />
+                      <span className="text-[11px] font-semibold tracking-wider text-[#7E93A4] font-mono uppercase">
+                        EVENT FEED
+                      </span>
+                    </div>
+                    <span className="text-[9px] font-mono" style={{ color: 'var(--text-dim)' }}>
+                      {missionEvents.length}
+                    </span>
+                  </div>
+                  <div className="flex flex-col gap-1.5" style={{ maxHeight: '120px', overflow: 'hidden' }}>
+                    {missionEvents.slice(-4).reverse().map((evt) => (
+                      <div key={evt.id} className="mini-event-entry">
+                        <div className="flex items-center gap-1.5">
+                          <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{
+                            background: evt.type === 'ECHO_LOCK' ? '#63C79A' :
+                              evt.type === 'SHADOW_ZONE' ? '#D96B6B' :
+                              evt.type === 'CHANNEL_ROLL' ? '#D9A441' :
+                              evt.type === 'PING' ? '#43C7D9' : '#71858F'
+                          }} />
+                          <span className="truncate text-[10px]" style={{ color: 'var(--text-primary)' }}>{evt.title}</span>
+                        </div>
+                      </div>
+                    ))}
+                    {missionEvents.length === 0 && (
+                      <div className="text-[10px] font-mono text-center py-2" style={{ color: 'var(--text-dim)' }}>
+                        Awaiting events...
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -509,6 +716,10 @@ export function App() {
                   isAutoPinging={isAutoPinging}
                   turbidity={turbidity}
                   triggerPingRef={triggerPingRef}
+                  worldOffsetX={missionWorldOffsetX}
+                  isMissionActive={isMissionRunning}
+                  collisionWarning={missionCollisionWarning}
+                  collisionDistanceM={missionCollisionDistanceM}
                 />
               </div>
 
@@ -516,6 +727,32 @@ export function App() {
               <div className="w-full lg:w-[325px] shrink-0 flex flex-col gap-3 overflow-y-auto pl-0.5">
                 {/* QUICK CONTROLS */}
                 <div className="instrument-panel p-3.5 flex flex-col gap-3">
+                  {/* AUTONOMOUS MISSION CONTROL BUTTON */}
+                  <button
+                    id="mission-control-btn"
+                    onClick={isMissionRunning ? stopMission : startMission}
+                    className="w-full py-2.5 px-4 rounded font-mono font-bold text-xs tracking-wider flex items-center justify-center gap-2 transition-all active:scale-[0.98] hover:brightness-110 shadow-sm mb-1"
+                    style={{
+                      background: isMissionRunning
+                        ? 'rgba(239, 68, 68, 0.2)'
+                        : 'rgba(99, 199, 154, 0.15)',
+                      border: `1px solid ${isMissionRunning ? 'rgba(239, 68, 68, 0.5)' : 'rgba(99, 199, 154, 0.5)'}`,
+                      color: isMissionRunning ? '#fca5a5' : '#63C79A',
+                    }}
+                  >
+                    <span
+                      className="w-2 h-2 rounded-full inline-block"
+                      style={{
+                        background: isMissionRunning ? '#ef4444' : '#63C79A',
+                        boxShadow: `0 0 6px ${isMissionRunning ? '#ef4444' : '#63C79A'}`,
+                        animation: isMissionRunning ? 'pulse 1.5s ease-in-out infinite' : 'none',
+                      }}
+                    />
+                    <span className="font-extrabold text-[11px] tracking-wider">
+                      {isMissionRunning ? 'HALT MISSION' : 'START AUTONOMOUS MISSION'}
+                    </span>
+                  </button>
+
                   <div className="text-[11px] font-semibold tracking-wider text-[#7E93A4] font-mono uppercase">
                     QUICK CONTROLS
                   </div>
@@ -607,6 +844,12 @@ export function App() {
                     ACOUSTIC METRICS
                   </div>
                   <div className="flex items-center justify-between text-[11px] font-mono">
+                    <span className="text-[#7E93A4]">Range Resolution ΔR</span>
+                    <span className="font-semibold" style={{ color: '#63C79A' }}>
+                      {((currentOceanProps.soundSpeed / (2 * (bandwidthKhz * 1000))) * 100).toFixed(1)} cm
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-[11px] font-mono">
                     <span className="text-[#7E93A4]">Thorp α(f)</span>
                     <span className="font-semibold" style={{ color: '#43C7D9' }}>{thorpDbKm.toFixed(2)} dB/km</span>
                   </div>
@@ -648,9 +891,21 @@ export function App() {
                 </div>
 
                 {/* ACOUSTIC RESULT */}
-                <div className="instrument-panel p-3 flex flex-col gap-2">
-                  <div className="text-[11px] font-semibold tracking-wider text-[#7E93A4] font-mono uppercase mb-0.5">
-                    ACOUSTIC RESULT
+                <div className={`instrument-panel p-3 flex flex-col gap-2 ${latestEcho?.success ? '' : ''}`}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 text-[11px] font-semibold tracking-wider text-[#7E93A4] font-mono uppercase">
+                      <Crosshair className="w-3.5 h-3.5 text-[#43C7D9]" />
+                      <span>ACOUSTIC RESULT</span>
+                    </div>
+                    {latestEcho && (
+                      <span
+                        className="flex items-center gap-1 text-[9px] font-mono font-bold tracking-wider"
+                        style={{ color: latestEcho.success ? '#63C79A' : '#D96B6B' }}
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full" style={{ background: latestEcho.success ? '#63C79A' : '#D96B6B' }} />
+                        {latestEcho.success ? 'LOCKED' : 'LOST'}
+                      </span>
+                    )}
                   </div>
                   <div className="flex items-center justify-between text-[11px] font-mono">
                     <span className="text-[#7E93A4]">Measured Depth</span>
@@ -662,6 +917,21 @@ export function App() {
                     <span className="text-[#7E93A4]">SNR</span>
                     <span className="font-semibold text-slate-100">
                       {latestEcho ? `+${latestEcho.snrDb.toFixed(1)} dB` : '--'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-[11px] font-mono">
+                    <span className="text-[#7E93A4]">Travel Time</span>
+                    <span className="font-semibold text-slate-100">
+                      {latestEcho ? `${latestEcho.travelTimeMs.toFixed(1)} ms` : '--'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-[11px] font-mono">
+                    <span className="flex items-center gap-1 text-[#7E93A4]">
+                      <Zap className="w-3 h-3 text-[#63C79A]" />
+                      <span>Compression Gain</span>
+                    </span>
+                    <span className="font-semibold" style={{ color: '#63C79A' }}>
+                      {latestEcho ? `+${latestEcho.compressionGainDb.toFixed(1)} dB` : '--'}
                     </span>
                   </div>
                 </div>
@@ -1127,9 +1397,9 @@ export function App() {
               >
                 ↑↓←→
               </kbd>
-              <span>Steer AUV</span>
+              <span>Steer AUV (Manual Mode)</span>
             </span>
-            <span>· Drag Submersible on Viewport</span>
+            <span>· {isMissionRunning ? 'AUTONOMOUS MISSION ACTIVE' : 'Drag Submersible on Viewport'}</span>
           </div>
         </footer>
       )}
