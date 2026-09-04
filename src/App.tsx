@@ -17,6 +17,7 @@ import { LiveHardwareBridge } from './components/telemetry/LiveHardwareBridge';
 import { EnvironmentalInjector } from './components/telemetry/EnvironmentalInjector';
 import { AcousticTheoryModal } from './components/common/AcousticTheoryModal';
 import { RagAssistantModal } from './components/common/RagAssistantModal';
+import { ThreeDViewportModal } from './components/simulations/ThreeDViewportModal';
 import { sonarAudio } from './utils/audioSonar';
 import { Compass, Navigation, Signal, Activity, Cpu, Terminal, AlertTriangle } from 'lucide-react';
 
@@ -31,6 +32,7 @@ export function App() {
   const [isAutoPinging, setIsAutoPinging] = useState<boolean>(false);
   const [isTheoryOpen, setIsTheoryOpen] = useState<boolean>(false);
   const [isRagOpen, setIsRagOpen] = useState<boolean>(false);
+  const [is3DOpen, setIs3DOpen] = useState<boolean>(false);
   const [isAudioEnabled, setIsAudioEnabled] = useState<boolean>(true);
   const [pingFlash, setPingFlash] = useState(false);
   const [telemetryTab, setTelemetryTab] = useState<'SIGNAL' | 'DSP' | 'FAULT' | 'LOG'>('SIGNAL');
@@ -64,6 +66,15 @@ export function App() {
   ]);
 
   const activeBand = bands[activeBandIndex] || bands[0];
+
+  // Wenz (1962) noise floor computed client-side for active channel (matches backend)
+  const activeCenterKHz = (activeBand.fStart + activeBand.fEnd) / 2;
+  const wenzLogF = Math.log10(Math.max(0.1, activeCenterKHz));
+  const wenzNoiseFloor = parseFloat(Math.max(
+    76.0 - 20.0 * wenzLogF,
+    44.0 + 7.5 * Math.sqrt(3) - 17.0 * wenzLogF,
+    -15.0 + 20.0 * wenzLogF
+  ).toFixed(1));
 
   const addMissionEvent = useCallback((event: Omit<MissionEvent, 'id' | 'timestamp'>) => {
     const newEvent: MissionEvent = {
@@ -204,6 +215,7 @@ export function App() {
         onOpenTheory={() => setIsTheoryOpen(true)}
         onOpenBoot={() => setIsBooting(true)}
         onOpenRag={() => setIsRagOpen(true)}
+        onOpen3D={() => setIs3DOpen(true)}
         isAudioEnabled={isAudioEnabled}
         setIsAudioEnabled={setIsAudioEnabled}
       />
@@ -394,6 +406,7 @@ export function App() {
                       layers={activeScenario.layers}
                       autoRoll={autoRoll}
                       setAutoRoll={setAutoRoll}
+                      noiseFloorDb={wenzNoiseFloor}
                     />
                   </div>
                 </div>
@@ -433,6 +446,7 @@ export function App() {
                       layers={activeScenario.layers}
                       autoRoll={autoRoll}
                       setAutoRoll={setAutoRoll}
+                      noiseFloorDb={wenzNoiseFloor}
                     />
                   </div>
                 </div>
@@ -469,6 +483,7 @@ export function App() {
                       layers={activeScenario.layers}
                       autoRoll={autoRoll}
                       setAutoRoll={setAutoRoll}
+                      noiseFloorDb={wenzNoiseFloor}
                     />
                   </div>
                 </div>
@@ -495,6 +510,7 @@ export function App() {
                       layers={activeScenario.layers}
                       autoRoll={autoRoll}
                       setAutoRoll={setAutoRoll}
+                      noiseFloorDb={wenzNoiseFloor}
                     />
                   </div>
                 </div>
@@ -532,6 +548,9 @@ export function App() {
 
       {/* MoES / NIOT Agentic RAG Assistant Modal */}
       <RagAssistantModal isOpen={isRagOpen} onClose={() => setIsRagOpen(false)} />
+
+      {/* Blender 3D CAD & Ray Physics Viewport Modal */}
+      <ThreeDViewportModal isOpen={is3DOpen} onClose={() => setIs3DOpen(false)} />
     </div>
   );
 }

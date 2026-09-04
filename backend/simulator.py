@@ -74,6 +74,14 @@ class SubseaHardwareSimulator:
 
         echo_cls = 0 if snr > 10.0 else (1 if turbidity > 100 else 3)
 
+        # Wenz (1962) ambient noise floor for active channel frequency
+        f_khz = {0: 120.0, 1: 225.0, 2: 440.0}.get(ch, 225.0)
+        log_f = math.log10(max(0.1, f_khz))
+        wenz_ship = 76.0 - 20.0 * log_f
+        wenz_wind = 44.0 + 7.5 * math.sqrt(3.0) - 17.0 * log_f
+        wenz_therm = -15.0 + 20.0 * log_f
+        noise_floor_db = round(max(wenz_ship, wenz_wind, wenz_therm), 1)
+
         return {
             "type": "TELEMETRY",
             "seq": self.seq,
@@ -97,7 +105,8 @@ class SubseaHardwareSimulator:
             "echo_cls": echo_cls,
             "est_bottom": round(seabed_depth, 1),
             "altitude_m": round(altitude, 1),
-            "travel_time_ms": round(travel_time_ms, 2)
+            "travel_time_ms": round(travel_time_ms, 2),
+            "noise_floor_db": noise_floor_db
         }
 
 simulator = SubseaHardwareSimulator()

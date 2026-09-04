@@ -21,10 +21,11 @@ C2_2 6 0 220p
 E_OP2 7 0 6 7 100000
 
 * --- Class-AB Push-Pull Output Stage (BD139 / BD140) ---
-RB1 7 8 100
+R_DRV 7 9 100
+RBIAS1 10 8 1.2k
+RBIAS2 11 12 1.2k
 D1  8 9 D1N4148
 D2  9 12 D1N4148
-RB2 12 7 100
 
 * Top Transistor (NPN BD139)
 Q_TOP 10 8 13 QBD139
@@ -44,10 +45,22 @@ R_LOAD 16 0 50
 .MODEL QBD140 PNP (IS=1e-13 BF=160 VAF=100 IKF=1.5 ISE=1e-12 NE=1.5 BR=4 VAR=20 IKR=0.3 ISC=1e-11 NC=1.5 RB=1.5 RE=0.1 RC=0.15 CJE=80p CJC=25p TF=1n TR=50n)
 
 * --- Analysis Directives ---
-.AC DEC 50 10k 10MEG
-.TRAN 10n 20u
-.PRINT AC VDB(16) VP(16)
-.PRINT TRAN V(16) V(1)
+.control
+  set wr_vecnames
+  set wr_singlescale
+  
+  * AC Analysis
+  ac dec 50 10k 10MEG
+  wrdata ac_results.txt vdb(16) vp(16)
+  
+  * Transient Analysis
+  tran 10n 20u
+  wrdata tran_results.txt v(16) v(1)
+  
+  * Operating Point for bias checking
+  op
+  print @q_top[ic] @q_bot[ic]
+.endc
 
 .END
 

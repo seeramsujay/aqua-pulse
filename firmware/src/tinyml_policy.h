@@ -24,8 +24,10 @@ typedef struct {
 
 typedef struct {
     uint8_t      recommended_channel_id; /* 0, 1, or 2 */
-    WindowType_t recommended_window;     /* Hann, Blackman-Harris */
+    WindowType_t recommended_window;     /* Hann, Blackman-Harris, or HFM */
     float        recommended_amplitude;  /* 0.1 to 1.0 */
+    float        recommended_t_pulse_ms; /* Hard-clamped pulse duration <= 1.5ms */
+    uint8_t      recommended_window_id;  /* WindowType_t enum as int */
     float        estimated_snr_db;
     float        predicted_power_mw;
     float        power_savings_pct;      /* Compared to static 100% 45kHz CW */
