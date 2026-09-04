@@ -237,23 +237,9 @@ export function traceAcousticRay(
     }
 
     const currentTL = calculateTransmissionLoss(totalDistance, freqKHz, turbidityNTU);
-    if (currentTL > maxAllowableTL * 1.4) {
-      // Ray dissipated completely
-      segments.push({
-        x1: prevX,
-        y1: prevZ,
-        x2: currX,
-        y2: currZ,
-        timeMs: totalTimeMs,
-        attenuationDb: currentTL,
-        intensity: 0.05,
-        freqKHz,
-        color,
-        isReflected: false,
-        isSeafloorHit: false,
-        isLostInShadow: true
-      });
-      break;
+    const isAttenuated = currentTL > maxAllowableTL * 1.4;
+    if (isAttenuated) {
+      isLostInShadow = true;
     }
 
     segments.push({

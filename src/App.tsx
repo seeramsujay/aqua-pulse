@@ -26,6 +26,7 @@ import { EnvironmentalInjector } from './components/telemetry/EnvironmentalInjec
 import { AcousticTheoryModal } from './components/common/AcousticTheoryModal';
 import { RagAssistantModal } from './components/common/RagAssistantModal';
 import { ThreeDViewportModal } from './components/simulations/ThreeDViewportModal';
+import { VisualGuideModal } from './components/common/VisualGuideModal';
 import { sonarAudio } from './utils/audioSonar';
 import {
   Cpu,
@@ -79,11 +80,12 @@ export function App() {
   const [mode, setMode] = useState<SonarMode>('rc-css');
   const [bands] = useState<ChirpBand[]>(STANDARD_CHIRP_BANDS);
   const [activeBandIndex, setActiveBandIndex] = useState<number>(0);
-  const [autoRoll, setAutoRoll] = useState<boolean>(true);
+  const [autoRoll, setAutoRoll] = useState<boolean>(false);
   const [isAutoPinging, setIsAutoPinging] = useState<boolean>(false);
   const [isTheoryOpen, setIsTheoryOpen] = useState<boolean>(false);
   const [isRagOpen, setIsRagOpen] = useState<boolean>(false);
   const [is3DOpen, setIs3DOpen] = useState<boolean>(false);
+  const [isGuideOpen, setIsGuideOpen] = useState<boolean>(false);
   const [isAudioEnabled, setIsAudioEnabled] = useState<boolean>(true);
 
   // Navigation State
@@ -202,7 +204,7 @@ export function App() {
     if (!isAutoPinging) return;
     const interval = setInterval(() => {
       triggerPingWithAudio();
-    }, 1100);
+    }, 4200);
     return () => clearInterval(interval);
   }, [isAutoPinging, triggerPingWithAudio]);
 
@@ -361,6 +363,7 @@ export function App() {
         onOpenTheory={() => setIsTheoryOpen(true)}
         onOpenRag={() => setIsRagOpen(true)}
         onOpen3D={() => setIs3DOpen(true)}
+        onOpenGuide={() => setIsGuideOpen(true)}
         isAudioEnabled={isAudioEnabled}
         setIsAudioEnabled={setIsAudioEnabled}
       />
@@ -637,21 +640,80 @@ export function App() {
                 </div>
               </div>
 
-              {/* ── CENTER COLUMN (OceanCanvas) ── */}
-              <div className="flex-1 min-w-0 h-full flex flex-col">
-                <OceanCanvas
-                  submersible={submersible}
-                  setSubmersible={setSubmersible}
-                  layers={activeScenario.layers}
-                  terrainType={activeScenario.terrainType}
-                  mode={mode}
-                  activeBand={activeBand}
-                  onEchoDetected={handleEchoDetected}
-                  onSoundingPoint={handleSoundingPoint}
-                  isAutoPinging={isAutoPinging}
-                  turbidity={turbidity}
-                  triggerPingRef={triggerPingRef}
-                />
+              {/* ── CENTER COLUMN (OceanCanvas + Live Acoustic Dynamics Bar) ── */}
+              <div className="flex-1 min-w-0 h-full flex flex-col gap-2">
+                {/* Real-time Narrative & Visual Identification Strip */}
+                <div
+                  className="instrument-panel px-3.5 py-1.5 flex flex-wrap items-center justify-between gap-2 text-xs font-mono shrink-0"
+                  style={{
+                    borderLeft: `3px solid ${activeBand.color}`,
+                    background: '#09151F',
+                  }}
+                >
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <span className="flex items-center gap-1.5 font-bold">
+                      <span
+                        className="w-2 h-2 rounded-full"
+                        style={{ background: activeBand.color, boxShadow: `0 0 8px ${activeBand.color}` }}
+                      />
+                      <span style={{ color: activeBand.color }}>
+                        {submersible.depth <= 250
+                          ? 'EPIPELEGAIC ZONE (0–250m)'
+                          : submersible.depth <= 700
+                          ? 'THERMOCLINE ZONE (250–700m)'
+                          : 'BATHYPELAGIC ABYSS (>700m)'}
+                      </span>
+                    </span>
+
+                    <span className="text-[#43C7D9]">
+                      AUV: <strong>{Math.round(submersible.depth)}m</strong>
+                    </span>
+
+                    <span className="text-[#7E93A4]">·</span>
+
+                    <span className="text-slate-200">
+                      Active: <span style={{ color: activeBand.color }} className="font-bold">{activeBand.fStart}–{activeBand.fEnd} kHz ({submersible.depth <= 250 ? 'Purple Wave' : submersible.depth <= 700 ? 'Emerald Wave' : 'Amber Wave'})</span>
+                    </span>
+
+                    <span className="text-[#7E93A4] hidden lg:inline">·</span>
+
+                    <span className="text-[#94a3b8] hidden lg:inline">
+                      Seafloor: <strong className="text-slate-200">{Math.round(getSeafloorDepth(submersible.x, activeScenario.terrainType, 2000))}m</strong> (Waves Reach Floor)
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsGuideOpen(true)}
+                    className="flex items-center gap-1.5 px-3 py-1 rounded font-bold text-[11px] transition-all hover:brightness-110 active:scale-95 shadow shrink-0"
+                    style={{
+                      background: '#43C7D9',
+                      color: '#071018',
+                    }}
+                    title="Open Complete Visual Identification Guide: What Represents What"
+                  >
+                    <span>ℹ</span>
+                    <span className="tracking-wider uppercase">What Represents What?</span>
+                  </button>
+                </div>
+
+                {/* Ocean Canvas with responsive flex growth */}
+                <div className="flex-1 min-h-0 relative">
+                  <OceanCanvas
+                    submersible={submersible}
+                    setSubmersible={setSubmersible}
+                    layers={activeScenario.layers}
+                    terrainType={activeScenario.terrainType}
+                    mode={mode}
+                    activeBand={activeBand}
+                    onEchoDetected={handleEchoDetected}
+                    onSoundingPoint={handleSoundingPoint}
+                    isAutoPinging={isAutoPinging}
+                    turbidity={turbidity}
+                    triggerPingRef={triggerPingRef}
+                    onOpenGuide={() => setIsGuideOpen(true)}
+                  />
+                </div>
               </div>
 
               {/* ── RIGHT PANEL (≈ 310–340px) ── */}
@@ -1315,6 +1377,12 @@ export function App() {
       <AcousticTheoryModal isOpen={isTheoryOpen} onClose={() => setIsTheoryOpen(false)} />
       <RagAssistantModal isOpen={isRagOpen} onClose={() => setIsRagOpen(false)} />
       <ThreeDViewportModal isOpen={is3DOpen} onClose={() => setIs3DOpen(false)} />
+      <VisualGuideModal
+        isOpen={isGuideOpen}
+        onClose={() => setIsGuideOpen(false)}
+        activeBandIndex={activeBandIndex}
+        currentDepth={submersible.depth}
+      />
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { PresetScenario } from '../../types/sonar';
-import { Radio, BookOpen, Bot, Volume2, VolumeX, Box } from 'lucide-react';
+import { Radio, BookOpen, Bot, Volume2, VolumeX, Box, Info } from 'lucide-react';
 
 export const MAIN_TABS = [
   { id: 'MISSION', label: 'Mission' },
@@ -22,6 +22,7 @@ interface NavbarProps {
   onOpenTheory: () => void;
   onOpenRag?: () => void;
   onOpen3D?: () => void;
+  onOpenGuide?: () => void;
   isAudioEnabled?: boolean;
   setIsAudioEnabled?: (val: boolean) => void;
 }
@@ -37,6 +38,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenTheory,
   onOpenRag,
   onOpen3D,
+  onOpenGuide,
   isAudioEnabled,
   setIsAudioEnabled,
 }) => {
@@ -163,6 +165,22 @@ export const Navbar: React.FC<NavbarProps> = ({
             >
               <Bot className="w-3.5 h-3.5" />
               <span>RAG</span>
+            </button>
+          )}
+
+          {/* What Represents What Guide button */}
+          {onOpenGuide && (
+            <button
+              onClick={onOpenGuide}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded text-[11px] font-mono font-bold transition-all hover:brightness-110 shadow-sm"
+              style={{
+                background: '#43C7D9',
+                color: '#071018',
+              }}
+              title="Open System Guide: What Represents What"
+            >
+              <Info className="w-3.5 h-3.5 text-[#071018]" />
+              <span>GUIDE</span>
             </button>
           )}
 

@@ -20,6 +20,17 @@ interface OceanCanvasProps {
   isAutoPinging: boolean;
   turbidity?: number;
   triggerPingRef?: React.MutableRefObject<(() => void) | null>;
+  onOpenGuide?: () => void;
+}
+
+interface PingWave {
+  id: string;
+  originX: number;
+  originDepth: number;
+  radius: number;
+  color: string;
+  maxRadius: number;
+  speed: number;
 }
 
 interface OceanParticle {
@@ -44,13 +55,14 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
   isAutoPinging,
   turbidity = 12.0,
   triggerPingRef,
+  onOpenGuide,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [rays, setRays] = useState<AcousticRay[]>([]);
   const [isDraggingAuv, setIsDraggingAuv] = useState(false);
   const [isHoveringAuv, setIsHoveringAuv] = useState(false);
   const dragOffsetRef = useRef<{ x: number; depth: number }>({ x: 0, depth: 0 });
-  const pingWaveRadiiRef = useRef<number[]>([]);
+  const pingWavesRef = useRef<PingWave[]>([]);
   const animationFrameRef = useRef<number | null>(null);
   const particlesRef = useRef<OceanParticle[]>([]);
 
@@ -141,7 +153,22 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
   const triggerPing = useCallback(() => {
     const newRays = generateRaysAt(submersible.x, submersible.depth);
     setRays(newRays);
-    pingWaveRadiiRef.current.push(5);
+
+    // Calculate distance to seafloor so wave expands past the seafloor
+    const seafloorZ = getSeafloorDepth(submersible.x, terrainType, WORLD_WIDTH_M);
+    const distToFloorM = Math.max(30, seafloorZ - submersible.depth);
+    const distToFloorPx = (distToFloorM / WORLD_DEPTH_M) * 650;
+    const maxRadiusPx = Math.max(780, distToFloorPx + 320);
+
+    pingWavesRef.current.push({
+      id: `wave-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      originX: submersible.x,
+      originDepth: submersible.depth,
+      radius: 8,
+      color: activeBand.color,
+      maxRadius: maxRadiusPx,
+      speed: 1.35, // Deliberate, smooth, majestic wave expansion
+    });
 
     // Update status
     setSubmersible((prev: Submersible) => ({ ...prev, status: 'transmitting', pingActive: true }));
@@ -586,20 +613,22 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
         const targetSegIndex = Math.min(totalSegments - 1, Math.floor(pulseRatio * totalSegments));
         const seg = ray.segments[targetSegIndex];
 
-        if (seg && !seg.isLostInShadow) {
+        if (seg) {
           const px = scaleX(seg.x1 + (seg.x2 - seg.x1) * (pulseRatio * totalSegments - targetSegIndex));
           const py = scaleY(seg.y1 + (seg.y2 - seg.y1) * (pulseRatio * totalSegments - targetSegIndex));
 
           ctx.fillStyle = ray.color;
           ctx.shadowColor = ray.color;
           ctx.shadowBlur = 10;
+          ctx.globalAlpha = seg.isLostInShadow ? 0.45 : 1.0;
           ctx.beginPath();
           ctx.arc(px, py, 4, 0, Math.PI * 2);
           ctx.fill();
+          ctx.globalAlpha = 1.0;
           ctx.shadowBlur = 0;
         }
 
-        // Seafloor hit spark / reflection point
+        // Seafloor hit spark / reflection point - every ray touches the floor
         const lastSeg = ray.segments[ray.segments.length - 1];
         if (lastSeg && lastSeg.isSeafloorHit) {
           const hitX = scaleX(lastSeg.x2);
@@ -609,28 +638,74 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
           ctx.shadowColor = lastSeg.isLostInShadow ? '#ef4444' : ray.color;
           ctx.shadowBlur = 14;
           ctx.beginPath();
-          ctx.arc(hitX, hitY, lastSeg.isLostInShadow ? 3 : 4.5, 0, Math.PI * 2);
+          ctx.arc(hitX, hitY, lastSeg.isLostInShadow ? 3.5 : 5, 0, Math.PI * 2);
           ctx.fill();
           ctx.shadowBlur = 0;
+
+          // Seafloor acoustic contact hit ring
+          ctx.strokeStyle = lastSeg.isLostInShadow ? 'rgba(239, 68, 68, 0.4)' : `${ray.color}80`;
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.ellipse(hitX, hitY, 10, 3.5, 0, 0, Math.PI * 2);
+          ctx.stroke();
         }
       });
 
-      // 7. Draw Expanding Acoustic Ping Wavefronts (Slow, Majestic Expansion at r + 1.2)
-      pingWaveRadiiRef.current = pingWaveRadiiRef.current
-        .map((r) => r + 1.2)
-        .filter((r) => {
-          const auvX = scaleX(submersible.x);
-          const auvY = scaleY(submersible.depth);
+      // 7. Draw Expanding Acoustic Ping Wavefronts (All waves reach and touch the seafloor floor)
+      pingWavesRef.current = pingWavesRef.current
+        .map((wObj) => ({ ...wObj, radius: wObj.radius + wObj.speed }))
+        .filter((wObj) => {
+          const originPx = scaleX(wObj.originX);
+          const originPy = scaleY(wObj.originDepth);
 
-          ctx.strokeStyle = activeBand.color;
-          ctx.lineWidth = Math.max(0.6, 2.8 - r / 100);
-          ctx.globalAlpha = Math.max(0, 1 - r / 300);
+          // Calculate distance to seafloor directly below the wave's horizontal location
+          const floorDepthM = getSeafloorDepth(wObj.originX, terrainType, WORLD_WIDTH_M);
+          const floorPy = scaleY(floorDepthM);
+          const distanceToFloorPx = Math.max(10, floorPy - originPy);
+          const hasReachedFloor = wObj.radius >= distanceToFloorPx;
+
+          // Gradual opacity fade out that ensures high visibility as it strikes the seafloor
+          const progress = wObj.radius / wObj.maxRadius;
+          const alpha = Math.max(0.08, (1 - progress * 0.82) * 0.85);
+
+          ctx.save();
+          ctx.strokeStyle = wObj.color;
+          ctx.lineWidth = Math.max(0.8, 2.8 - progress * 1.5);
+          ctx.globalAlpha = alpha;
+          ctx.shadowColor = wObj.color;
+          ctx.shadowBlur = 8;
           ctx.beginPath();
-          ctx.arc(auvX, auvY, r, 0, Math.PI * 2);
+          ctx.arc(originPx, originPy, wObj.radius, 0, Math.PI * 2);
           ctx.stroke();
-          ctx.globalAlpha = 1.0;
 
-          return r < 300;
+          // When wavefront touches the seabed, render dynamic acoustic seabed contact ripples!
+          if (hasReachedFloor && wObj.radius < distanceToFloorPx + 220) {
+            const contactWidth = Math.min(260, (wObj.radius - distanceToFloorPx) * 2.4);
+            if (contactWidth > 0) {
+              ctx.strokeStyle = '#43C7D9';
+              ctx.shadowColor = '#00f0ff';
+              ctx.shadowBlur = 14;
+              ctx.lineWidth = 2.2;
+              ctx.beginPath();
+              ctx.ellipse(originPx, floorPy, contactWidth / 2, 4.5, 0, 0, Math.PI * 2);
+              ctx.stroke();
+
+              // Reflected acoustic echo ripples traveling upward
+              const echoR = (wObj.radius - distanceToFloorPx) * 0.55;
+              if (echoR > 6 && echoR < 100) {
+                ctx.strokeStyle = `${wObj.color}95`;
+                ctx.lineWidth = 1.3;
+                ctx.setLineDash([4, 4]);
+                ctx.beginPath();
+                ctx.arc(originPx, floorPy, echoR, Math.PI, Math.PI * 2);
+                ctx.stroke();
+                ctx.setLineDash([]);
+              }
+            }
+          }
+
+          ctx.restore();
+          return wObj.radius < wObj.maxRadius;
         });
 
       // 8. Draw AUV / Submersible Vehicle
@@ -815,12 +890,25 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
         border: '1px solid #20333D',
       }}
     >
-      {/* Top right in-situ sound speed readout & active channel frequency */}
-      <div
-        className="absolute top-3 right-4 z-10 flex items-center gap-3 font-mono text-[11px] pointer-events-none"
-      >
+      {/* Top Left: Live Acoustic Sounding & Collision Status */}
+      <div className="absolute top-3 left-4 z-10 flex items-center gap-2 font-mono text-[11px] pointer-events-none">
         <span
-          className="px-2 py-0.5 rounded font-bold"
+          className="flex items-center gap-1.5 px-2.5 py-1 rounded font-bold"
+          style={{
+            background: 'rgba(7, 16, 24, 0.85)',
+            border: '1px solid #1f3340',
+            color: '#63C79A',
+          }}
+        >
+          <span className="w-2 h-2 rounded-full bg-[#63C79A] animate-pulse" />
+          <span>LIVE SOUNDINGS — ALL FREQUENCIES REACH SEABED</span>
+        </span>
+      </div>
+
+      {/* Top Right: In-situ Sound Speed & What Represents What Button */}
+      <div className="absolute top-3 right-4 z-10 flex items-center gap-2.5 font-mono text-[11px]">
+        <span
+          className="px-2 py-1 rounded font-bold"
           style={{
             background: `${activeBand.color}20`,
             border: `1px solid ${activeBand.color}60`,
@@ -829,9 +917,32 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
         >
           {activeBand.fStart}–{activeBand.fEnd} kHz
         </span>
-        <span style={{ color: '#43C7D9' }}>
+        <span
+          className="px-2 py-1 rounded font-semibold hidden sm:inline-block"
+          style={{
+            background: 'rgba(7, 16, 24, 0.85)',
+            border: '1px solid #1f3340',
+            color: '#43C7D9',
+          }}
+        >
           c(z) = {currentSoundSpeed.toFixed(1)} m/s
         </span>
+
+        {onOpenGuide && (
+          <button
+            type="button"
+            onClick={onOpenGuide}
+            className="flex items-center gap-1 px-2.5 py-1 rounded font-bold text-[11px] transition-all hover:brightness-110 active:scale-95 shadow"
+            style={{
+              background: '#43C7D9',
+              color: '#071018',
+            }}
+            title="Open Interactive Visual Guide: What Represents What"
+          >
+            <span>ℹ</span>
+            <span className="tracking-wider">WHAT REPRESENTS WHAT?</span>
+          </button>
+        )}
       </div>
 
       {/* Main Canvas Viewport with Precision Pointer Capture */}
@@ -848,66 +959,88 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
         }`}
       />
 
-      {/* Bottom Floating Legend */}
+      {/* Bottom Floating Legend & Guide Key */}
       <div
-        className="absolute bottom-3 left-4 right-4 z-10 flex items-center justify-center text-[10px] font-mono px-3 py-1.5 rounded pointer-events-none"
+        className="absolute bottom-2.5 left-3 right-3 z-10 flex flex-wrap items-center justify-between text-[10px] font-mono px-3 py-1.5 rounded pointer-events-auto"
         style={{
-          background: 'rgba(11, 23, 32, 0.85)',
+          background: 'rgba(11, 23, 32, 0.92)',
           border: '1px solid #20333D',
+          backdropFilter: 'blur(8px)',
           color: 'var(--text-secondary)',
         }}
       >
-        <div className="flex items-center space-x-6">
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-1">
+          <span className="text-[#7E93A4] font-bold uppercase tracking-wider hidden sm:inline">
+            COGNITIVE BANDS:
+          </span>
+
+          {/* CH0 Amber */}
           <span
             className={`flex items-center space-x-1.5 transition-opacity duration-200 ${
-              activeBand.id === 'band-subbottom' ? 'opacity-100 font-bold' : 'opacity-60'
+              activeBand.id === 'band-subbottom' ? 'opacity-100 font-bold' : 'opacity-70'
             }`}
           >
             <span
-              className="w-2 h-2 rounded-full inline-block"
+              className="w-2.5 h-2.5 rounded-full inline-block"
               style={{
                 background: '#D9A441',
                 boxShadow: activeBand.id === 'band-subbottom' ? '0 0 8px #D9A441' : 'none',
               }}
             />
             <span style={{ color: activeBand.id === 'band-subbottom' ? '#D9A441' : 'inherit' }}>
-              CH0: 100–140 kHz (Deep &gt;700m)
+              CH0: 100–140 kHz (Abyss &gt;700m · Amber)
             </span>
           </span>
 
+          {/* CH1 Emerald */}
           <span
             className={`flex items-center space-x-1.5 transition-opacity duration-200 ${
-              activeBand.id === 'band-midwater' ? 'opacity-100 font-bold' : 'opacity-60'
+              activeBand.id === 'band-midwater' ? 'opacity-100 font-bold' : 'opacity-70'
             }`}
           >
             <span
-              className="w-2 h-2 rounded-full inline-block"
+              className="w-2.5 h-2.5 rounded-full inline-block"
               style={{
                 background: '#63C79A',
                 boxShadow: activeBand.id === 'band-midwater' ? '0 0 8px #63C79A' : 'none',
               }}
             />
             <span style={{ color: activeBand.id === 'band-midwater' ? '#63C79A' : 'inherit' }}>
-              CH1: 200–250 kHz (Thermocline 250–700m)
+              CH1: 200–250 kHz (Thermocline 250–700m · Emerald)
             </span>
           </span>
 
+          {/* CH2 Purple */}
           <span
             className={`flex items-center space-x-1.5 transition-opacity duration-200 ${
-              activeBand.id === 'band-highres' ? 'opacity-100 font-bold' : 'opacity-60'
+              activeBand.id === 'band-highres' ? 'opacity-100 font-bold' : 'opacity-70'
             }`}
           >
             <span
-              className="w-2 h-2 rounded-full inline-block"
+              className="w-2.5 h-2.5 rounded-full inline-block"
               style={{
                 background: '#9B8EC4',
                 boxShadow: activeBand.id === 'band-highres' ? '0 0 8px #9B8EC4' : 'none',
               }}
             />
             <span style={{ color: activeBand.id === 'band-highres' ? '#9B8EC4' : 'inherit' }}>
-              CH2: 400–480 kHz (Shallow 0–250m)
+              CH2: 400–480 kHz (Shallow 0–250m · Purple)
             </span>
           </span>
+        </div>
+
+        <div className="flex items-center gap-3 mt-1 sm:mt-0 text-[10px]">
+          <span className="text-[#94a3b8] hidden md:inline">
+            🖱️ Drag Submarine | Space to Ping
+          </span>
+          {onOpenGuide && (
+            <button
+              onClick={onOpenGuide}
+              className="text-[#43C7D9] hover:text-[#7ee7f5] hover:underline font-bold transition-colors flex items-center gap-1"
+            >
+              <span>Explain Guide ↗</span>
+            </button>
+          )}
         </div>
       </div>
     </div>
