@@ -51,6 +51,18 @@ uint16_t dma_dac_synthesize_chirp(
 );
 
 /**
+ * @brief Synthesize a Hyperbolic Frequency Modulated (HFM) chirp waveform (B1: Doppler Invariant).
+ * f(t) = (f0 * f1) / (f1 - (f1 - f0) * (t / Tp))
+ */
+uint16_t dma_dac_synthesize_hfm_chirp(
+    uint16_t* buffer,
+    float f_start_hz,
+    float f_end_hz,
+    float duration_ms,
+    float amplitude_norm
+);
+
+/**
  * @brief Trigger a non-blocking DMA transmission burst.
  * Hardware Timer automatically clocks DAC samples out at 2.4 MSPS with 0.0% CPU overhead.
  */

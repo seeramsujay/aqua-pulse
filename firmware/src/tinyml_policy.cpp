@@ -133,9 +133,13 @@ void tinyml_policy_infer(const TinyMLInput_t* input, TinyMLOutput_t* output) {
         if (best_channel == 2) best_channel = 1;
     }
 
-    /* 5. Fill recommended control tuple */
+    /* 5. Fill recommended control tuple with hard safety clamp (B2: R_blind < 1.1 m) */
     output->recommended_channel_id = (uint8_t)best_channel;
     output->recommended_window = (input->turbidity_ntu > 200.0f) ? WINDOW_BLACKMAN_HARRIS : WINDOW_HANN;
+
+    float raw_tp = CHIRP_CHANNELS[best_channel].duration_ms;
+    output->recommended_t_pulse_ms = AQUA_MIN(raw_tp, 1.5f); /* Hard clamp at 1.5ms */
+    output->recommended_window_id  = (uint8_t)output->recommended_window;
     
     /* Dynamically scale amplitude */
     float base_amp = 0.5f + (input->depth_m / 2000.0f) * 0.45f;

@@ -45,3 +45,6 @@ firmware/src/*.o
 
 # Local Documentation
 walkthru.md
+scripts/
+*.blend
+*.blend1

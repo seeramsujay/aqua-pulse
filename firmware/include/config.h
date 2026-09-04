@@ -100,7 +100,8 @@ static const ChirpChannelConfig_t CHIRP_CHANNELS[NUM_CHIRP_CHANNELS] = {
 typedef enum {
     WINDOW_RECTANGULAR = 0,
     WINDOW_HANN = 1,
-    WINDOW_BLACKMAN_HARRIS = 2
+    WINDOW_BLACKMAN_HARRIS = 2,
+    WINDOW_HFM = 4
 } WindowType_t;
 
 /* =========================================================================
