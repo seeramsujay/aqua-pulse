@@ -9,6 +9,7 @@ Generates real-time reasoning and explanation vectors for cognitive acoustic ada
 import math
 from typing import Dict, Any, List
 
+
 class OceanographicRAGEngine:
     def __init__(self):
         # Knowledge Base of Oceanic Physics & Standards
@@ -38,6 +39,22 @@ class OceanographicRAGEngine:
                 "action": "Throttle amplitude to 0.70"
             }
         ]
+
+    def compute_wenz_noise_floor(self, freq_hz: float, sea_state: int = 3) -> float:
+        """
+        Wenz (1962) ambient ocean noise model.
+        Returns noise floor level in dB re 1 µPa²/Hz.
+        sea_state: 0 (calm) to 6 (rough). Default 3 (moderate).
+        """
+        f_khz = max(0.1, freq_hz / 1000.0)
+        log_f = math.log10(f_khz)
+        # Shipping / industrial noise (dominant 1–100 kHz)
+        shipping = 76.0 - 20.0 * log_f
+        # Wind / wave noise (Beaufort sea state dependent)
+        wind = 44.0 + 7.5 * math.sqrt(float(sea_state)) - 17.0 * log_f
+        # Thermal noise floor (dominant above 100 kHz, kT limit)
+        thermal = -15.0 + 20.0 * log_f
+        return round(max(shipping, wind, thermal), 1)
 
     def compute_mackenzie_sound_speed(self, temp_c: float, salinity_psu: float, depth_m: float) -> float:
         """
@@ -106,6 +123,10 @@ class OceanographicRAGEngine:
         alpha_ch1 = self.compute_thorp_attenuation(225.0)
         alpha_ch2 = self.compute_thorp_attenuation(440.0)
 
+        # Active channel frequency for noise floor estimation
+        active_freq_hz = {0: 120000.0, 1: 225000.0, 2: 440000.0}.get(chosen_channel, 225000.0)
+        noise_floor_db = self.compute_wenz_noise_floor(active_freq_hz, sea_state=3)
+
         return {
             "sound_speed_mps": c,
             "rule_id": ", ".join(rules_applied),
@@ -116,7 +137,8 @@ class OceanographicRAGEngine:
                 "ch2_440khz": alpha_ch2
             },
             "compression_gain_db": 18.4,
-            "snell_invariant": round(math.cos(math.radians(90.0)) / c, 6)
+            "snell_invariant": round(math.cos(math.radians(90.0)) / c, 6),
+            "noise_floor_db": noise_floor_db
         }
 
 rag_engine = OceanographicRAGEngine()

@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ChirpBand, OceanLayer, SonarMode, Submersible } from '../../types/sonar';
 import { calculateThorpAttenuation, calculateCssProcessingGain, getOceanPropertiesAtDepth } from '../../physics/oceanAcoustics';
-import { Cpu } from 'lucide-react';
+import { Cpu, ArrowRightLeft } from 'lucide-react';
 import { useAnimatedValue } from '../../hooks/useAnimatedValue';
 
 interface PhysicsPanelProps {
@@ -13,7 +13,26 @@ interface PhysicsPanelProps {
   layers: OceanLayer[];
   autoRoll: boolean;
   setAutoRoll: (val: boolean) => void;
+  noiseFloorDb?: number;
 }
+
+interface HopEvent {
+  fromBand: string;
+  toBand: string;
+  time: string;
+  reason: string;
+}
+
+// Channel colour map for hop log pills
+const BAND_COLORS: Record<string, string> = {
+  'band-subbottom': '#f59e0b',
+  'band-midwater':  '#10b981',
+  'band-highres':   '#a855f7',
+  'cw-sonar':       '#ef4444',
+};
+
+const shortName = (id: string) =>
+  id === 'band-subbottom' ? 'Ch0' : id === 'band-midwater' ? 'Ch1' : id === 'band-highres' ? 'Ch2' : 'CW';
 
 export const PhysicsPanel: React.FC<PhysicsPanelProps> = ({
   activeBand,
@@ -23,22 +42,58 @@ export const PhysicsPanel: React.FC<PhysicsPanelProps> = ({
   submersible,
   layers,
   autoRoll,
-  setAutoRoll
+  setAutoRoll,
+  noiseFloorDb,
 }) => {
-  const centerFreq = mode === 'rc-css' ? (activeBand.fStart + activeBand.fEnd) / 2 : 450;
-  const bandwidthHz = mode === 'rc-css' ? (activeBand.fEnd - activeBand.fStart) * 1000 : 200;
-  const durationSec = mode === 'rc-css' ? activeBand.durationMs / 1000 : 0.005;
+  const centerFreq      = mode === 'rc-css' ? (activeBand.fStart + activeBand.fEnd) / 2 : 450;
+  const bandwidthHz     = mode === 'rc-css' ? (activeBand.fEnd - activeBand.fStart) * 1000 : 200;
+  const durationSec     = mode === 'rc-css' ? activeBand.durationMs / 1000 : 0.005;
 
-  const thorpAlpha = calculateThorpAttenuation(centerFreq);
+  const thorpAlpha          = calculateThorpAttenuation(centerFreq);
   const timeBandwidthProduct = Math.round(bandwidthHz * durationSec);
-  const compressionGainDb = mode === 'rc-css' ? calculateCssProcessingGain(bandwidthHz, durationSec) : 0;
-  const auvProps = getOceanPropertiesAtDepth(layers, submersible.depth);
-  const snellInvariant = (Math.cos((submersible.pingAngleDeg * Math.PI) / 180) / auvProps.soundSpeed).toExponential(3);
+  const compressionGainDb   = mode === 'rc-css' ? calculateCssProcessingGain(bandwidthHz, durationSec) : 0;
+  const auvProps            = getOceanPropertiesAtDepth(layers, submersible.depth);
+  const snellInvariant      = (Math.cos((submersible.pingAngleDeg * Math.PI) / 180) / auvProps.soundSpeed).toExponential(3);
 
   // Animated values
   const animAlpha = useAnimatedValue(thorpAlpha, 300, 2);
-  const animGain = useAnimatedValue(compressionGainDb, 300, 1);
-  const animTB = useAnimatedValue(timeBandwidthProduct, 300, 0);
+  const animGain  = useAnimatedValue(compressionGainDb, 300, 1);
+  const animTB    = useAnimatedValue(timeBandwidthProduct, 300, 0);
+  const animNoise = useAnimatedValue(noiseFloorDb ?? 0, 300, 1);
+
+  // ── Channel Hop Log ────────────────────────────────────────────────────────
+  const prevBandIdRef  = useRef<string>(activeBand.id);
+  const debounceRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [hopLog, setHopLog] = useState<HopEvent[]>([]);
+  const [hopFlash, setHopFlash] = useState(false);
+
+  useEffect(() => {
+    if (activeBand.id === prevBandIdRef.current) return;
+
+    const from = prevBandIdRef.current;
+    const to   = activeBand.id;
+
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      // Reason inference
+      let reason = 'Manual selection';
+      if (autoRoll) reason = 'Auto-roll adaptation';
+      else if (submersible.depth > 500) reason = 'Depth > 500 m';
+      else if (submersible.depth > 150) reason = 'Depth > 150 m';
+
+      const now = new Date();
+      const timeStr = now.toLocaleTimeString('en-GB', { hour12: false });
+
+      setHopLog(prev => [{ fromBand: from, toBand: to, time: timeStr, reason }, ...prev].slice(0, 5));
+      prevBandIdRef.current = to;
+
+      // Flash animation
+      setHopFlash(true);
+      setTimeout(() => setHopFlash(false), 600);
+    }, 1800);
+
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [activeBand.id, autoRoll, submersible.depth]);
 
   return (
     <div className="glass-panel panel-accent-amber flex flex-col h-full overflow-hidden">
@@ -55,7 +110,6 @@ export const PhysicsPanel: React.FC<PhysicsPanelProps> = ({
             </div>
           </div>
 
-          {/* Auto-roll toggle */}
           {mode === 'rc-css' && (
             <label className="flex items-center gap-2 cursor-pointer select-none">
               <span className="telemetry-label text-slate-400">AUTO-ROLL</span>
@@ -71,12 +125,16 @@ export const PhysicsPanel: React.FC<PhysicsPanelProps> = ({
         </div>
       </div>
 
-      <div className="px-4 pb-4 flex flex-col gap-3 flex-1">
-        {/* Frequency Channel Selector */}
+      <div className="px-4 pb-4 flex flex-col gap-3 flex-1 overflow-y-auto">
+        {/* Channel Selector */}
         {mode === 'rc-css' ? (
           <div>
             <div className="telemetry-label text-slate-500 mb-1.5">ACTIVE STEPPED FREQUENCY CHANNEL</div>
-            <div className="grid grid-cols-3 gap-1.5">
+            <div
+              className={`grid grid-cols-3 gap-1.5 rounded-lg transition-all duration-300 ${
+                hopFlash ? 'ring-1 ring-amber-400/50' : ''
+              }`}
+            >
               {bands.map((band) => {
                 const isActive = activeBand.id === band.id;
                 return (
@@ -84,7 +142,7 @@ export const PhysicsPanel: React.FC<PhysicsPanelProps> = ({
                     key={band.id}
                     onClick={() => setActiveBand(band)}
                     className={`freq-channel ${isActive ? 'active' : ''}`}
-                    style={isActive ? { borderColor: band.color + '80', boxShadow: `0 0 10px ${band.color}20` } : {}}
+                    style={isActive ? { borderColor: band.color + '80', boxShadow: `0 0 8px ${band.color}18` } : {}}
                   >
                     <div className="flex items-center gap-1.5 mb-0.5">
                       <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: band.color }} />
@@ -107,8 +165,8 @@ export const PhysicsPanel: React.FC<PhysicsPanelProps> = ({
           </div>
         )}
 
-        {/* Telemetry readout grid */}
-        <div className="grid grid-cols-2 gap-2 flex-1">
+        {/* Physics Telemetry Grid */}
+        <div className="grid grid-cols-2 gap-2">
           <div className="telemetry-cell">
             <div className="telemetry-label text-amber-500/70">Thorp Atten α(f)</div>
             <div className="telemetry-value text-amber-300">{animAlpha}</div>
@@ -132,7 +190,56 @@ export const PhysicsPanel: React.FC<PhysicsPanelProps> = ({
             <div className="telemetry-value text-emerald-300 text-xs leading-tight font-mono">{snellInvariant}</div>
             <div className="text-[8px] text-slate-600 mt-0.5">cos(θ) / c(z)</div>
           </div>
+
+          {/* Noise Floor — new Wenz cell */}
+          <div className="telemetry-cell col-span-2">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="telemetry-label text-rose-500/70">Wenz Noise Floor NL</div>
+                <div className="telemetry-value text-rose-300">{noiseFloorDb !== undefined ? animNoise : '—'}</div>
+                <div className="text-[8px] text-slate-600 mt-0.5">dB re 1 µPa²/Hz · Ambient Ocean</div>
+              </div>
+              {noiseFloorDb !== undefined && compressionGainDb > 0 && (
+                <div className="text-right">
+                  <div className="telemetry-label text-slate-500">Effective SNR Margin</div>
+                  <div className="font-mono text-sm font-bold text-emerald-300">
+                    +{Math.max(0, compressionGainDb - noiseFloorDb * 0.05).toFixed(1)} dB
+                  </div>
+                  <div className="text-[8px] text-slate-600 mt-0.5">Gp − NL·correction</div>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
+
+        {/* Channel Hop Log */}
+        {mode === 'rc-css' && (
+          <div className="rounded-lg border border-white/[0.07] overflow-hidden" style={{ background: 'rgba(0,0,0,0.35)' }}>
+            <div className="px-3 py-1.5 border-b border-white/[0.06] flex items-center gap-2">
+              <ArrowRightLeft className="w-3 h-3 text-slate-500" />
+              <span className="font-mono text-[9px] text-slate-500 uppercase tracking-widest">Channel Hop Log</span>
+            </div>
+            {hopLog.length === 0 ? (
+              <div className="px-3 py-2 font-mono text-[9px] text-slate-600">No hops recorded — change channel or enable auto-roll</div>
+            ) : (
+              <div className="divide-y divide-white/[0.04]">
+                {hopLog.map((hop, i) => (
+                  <div key={i} className={`px-3 py-1.5 flex items-center gap-2 text-[9px] font-mono ${i === 0 ? 'bg-amber-900/10' : ''}`}>
+                    <span className="font-bold" style={{ color: BAND_COLORS[hop.fromBand] ?? '#94a3b8' }}>
+                      {shortName(hop.fromBand)}
+                    </span>
+                    <span className="text-slate-600">→</span>
+                    <span className="font-bold" style={{ color: BAND_COLORS[hop.toBand] ?? '#94a3b8' }}>
+                      {shortName(hop.toBand)}
+                    </span>
+                    <span className="text-slate-500 flex-1">{hop.reason}</span>
+                    <span className="text-slate-600 shrink-0">{hop.time}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

@@ -51,3 +51,6 @@ ac_out.txt
 tran_out.txt
 *.raw
 
+scripts/
+*.blend
+*.blend1
