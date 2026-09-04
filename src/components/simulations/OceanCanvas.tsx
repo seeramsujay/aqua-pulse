@@ -20,15 +20,6 @@ interface OceanCanvasProps {
   isAutoPinging: boolean;
   turbidity?: number;
   triggerPingRef?: React.MutableRefObject<(() => void) | null>;
-  /** Autonomous mission mode: world-scrolling offset in meters */
-  worldOffsetX?: number;
-  /** Autonomous mission mode: dynamic terrain elevation offset in meters (seafloor rises) */
-  terrainElevation?: number;
-  /** Whether the autonomous mission is active (straight cruise mode) */
-  isMissionActive?: boolean;
-  /** Collision warning distance (meters below AUV to seafloor ahead) */
-  collisionWarning?: boolean;
-  collisionDistanceM?: number | null;
 }
 
 interface OceanParticle {
@@ -53,11 +44,6 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
   isAutoPinging,
   turbidity = 12.0,
   triggerPingRef,
-  worldOffsetX = 0,
-  terrainElevation = 0,
-  isMissionActive = false,
-  collisionWarning = false,
-  collisionDistanceM = null,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [rays, setRays] = useState<AcousticRay[]>([]);
@@ -67,16 +53,10 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
   const pingWaveRadiiRef = useRef<number[]>([]);
   const animationFrameRef = useRef<number | null>(null);
   const particlesRef = useRef<OceanParticle[]>([]);
-  const [collisionDismissed, setCollisionDismissed] = useState(false);
 
   // Ocean coordinate system bounds
   const WORLD_WIDTH_M = 2000;
   const WORLD_DEPTH_M = 1500;
-
-  // Reset collision dismissed state when warning clears
-  useEffect(() => {
-    if (!collisionWarning) setCollisionDismissed(false);
-  }, [collisionWarning]);
 
   // Initialize environmental ocean particles once
   useEffect(() => {
@@ -92,8 +72,8 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
       pts.push({
         x: Math.random() * WORLD_WIDTH_M,
         y,
-        vx: (Math.random() - 0.5) * 0.4 + (type === 'caustic' ? 0.3 : 0.05),
-        vy: (Math.random() - 0.5) * 0.2 + (type === 'sediment' ? -0.1 : 0),
+        vx: (Math.random() - 0.5) * 0.35 + (type === 'caustic' ? 0.25 : 0.04),
+        vy: (Math.random() - 0.5) * 0.18 + (type === 'sediment' ? -0.08 : 0),
         size: type === 'bioluminescent' ? 1.8 + Math.random() * 1.5 : 1 + Math.random() * 1.5,
         baseAlpha: 0.15 + Math.random() * 0.35,
         type,
@@ -110,7 +90,6 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
       const centerAngle = submersible.pingAngleDeg;
       const angleStep = spread / (numRays - 1);
       const startAngle = centerAngle - spread / 2;
-      const elev = isMissionActive ? terrainElevation : 0;
 
       const newRays: AcousticRay[] = [];
 
@@ -129,7 +108,7 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
             'rc-css',
             3200,
             turbidity,
-            elev
+            0
           );
           newRays.push(ray);
         }
@@ -148,14 +127,14 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
             'traditional-cw',
             3200,
             turbidity,
-            elev
+            0
           );
           newRays.push(ray);
         }
       }
       return newRays;
     },
-    [mode, submersible.beamSpreadDeg, submersible.pingAngleDeg, isMissionActive, terrainElevation, activeBand, layers, terrainType, turbidity]
+    [mode, submersible.beamSpreadDeg, submersible.pingAngleDeg, activeBand, layers, terrainType, turbidity]
   );
 
   // Trigger Acoustic Ping
@@ -184,17 +163,17 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
               });
             }
           }
-        }, Math.min(1200, (r.echo.travelTimeMs / 20) * 10));
+        }, Math.min(1800, (r.echo.travelTimeMs / 20) * 12));
       }
     });
 
     setTimeout(() => {
       setSubmersible((prev: Submersible) => ({ ...prev, status: 'propagating' }));
-    }, 300);
+    }, 450);
 
     setTimeout(() => {
       setSubmersible((prev: Submersible) => ({ ...prev, status: 'idle', pingActive: false }));
-    }, 1400);
+    }, 2200);
   }, [generateRaysAt, submersible.x, submersible.depth, onEchoDetected, onSoundingPoint, setSubmersible]);
 
   // Hook triggerPingRef for external triggers (Space bar, Navbar button)
@@ -221,10 +200,8 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
         onEchoDetected(centerRay.echo);
       }
     } else {
-      // Even before manual ping: calculate and emit live in-situ sounding values on submarine movement
-      const elev = isMissionActive ? terrainElevation : 0;
-      const wrappedX = ((submersible.x % WORLD_WIDTH_M) + WORLD_WIDTH_M) % WORLD_WIDTH_M;
-      const seafloorZ = Math.max(150, getSeafloorDepth(wrappedX, terrainType, WORLD_WIDTH_M) - elev);
+      // Calculate and emit live in-situ sounding values on submarine movement
+      const seafloorZ = getSeafloorDepth(submersible.x, terrainType, WORLD_WIDTH_M);
       const altitude = Math.max(0.5, seafloorZ - submersible.depth);
       const c = getOceanPropertiesAtDepth(layers, submersible.depth).soundSpeed;
       const travelTimeMs = (2 * altitude / c) * 1000;
@@ -250,14 +227,14 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
         reason: 'Real-time Transducer Sounding',
       });
     }
-  }, [submersible.x, submersible.depth, generateRaysAt, onEchoDetected, isMissionActive, terrainElevation, terrainType, layers, activeBand, turbidity]);
+  }, [submersible.x, submersible.depth, generateRaysAt, onEchoDetected, terrainType, layers, activeBand, turbidity]);
 
-  // Auto-ping loop
+  // Auto-ping loop: Deliberate, relaxed cadence (4.0s) so soundings are clear and majestic
   useEffect(() => {
     if (!isAutoPinging) return;
     const interval = setInterval(() => {
       triggerPing();
-    }, 1800);
+    }, 4000);
     return () => clearInterval(interval);
   }, [isAutoPinging, triggerPing]);
 
@@ -272,17 +249,13 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
       const normX = Math.max(0, Math.min(1, cssX / rect.width));
       const normY = Math.max(0, Math.min(1, cssY / rect.height));
 
-      const offsetX = isMissionActive ? worldOffsetX : 0;
-      const worldX = normX * WORLD_WIDTH_M + offsetX;
+      const worldX = normX * WORLD_WIDTH_M;
       const depthM = normY * WORLD_DEPTH_M;
 
-      // AUV center position mapped to CSS pixels
-      const auvCanvasX = ((submersible.x - offsetX) / WORLD_WIDTH_M) * canvas.width;
-      const auvCanvasY = (submersible.depth / WORLD_DEPTH_M) * canvas.height;
-      const auvCssX = (auvCanvasX / canvas.width) * rect.width;
-      const auvCssY = (auvCanvasY / canvas.height) * rect.height;
-
-      const distCssPx = Math.hypot(cssX - auvCssX, cssY - auvCssY);
+      // Submarine actual position mapped to CSS pixels
+      const auvActualCssX = (submersible.x / WORLD_WIDTH_M) * rect.width;
+      const auvActualCssY = (submersible.depth / WORLD_DEPTH_M) * rect.height;
+      const distCssPx = Math.hypot(cssX - auvActualCssX, cssY - auvActualCssY);
 
       return {
         cssX,
@@ -291,16 +264,15 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
         normY,
         worldX,
         depthM,
-        auvCssX,
-        auvCssY,
+        auvActualCssX,
+        auvActualCssY,
         distCssPx,
       };
     },
-    [isMissionActive, worldOffsetX, submersible.x, submersible.depth]
+    [submersible.x, submersible.depth]
   );
 
   const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    if (isMissionActive) return; // In autonomous mission, AUV goes straight
     const data = getPointerCoords(e);
     if (!data) return;
 
@@ -316,15 +288,14 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
   };
 
   const handlePointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    if (isMissionActive) return;
     const data = getPointerCoords(e);
     if (!data) return;
 
     setIsHoveringAuv(data.distCssPx <= 42);
 
     if (isDraggingAuv) {
-      const targetX = Math.max(60, Math.min(WORLD_WIDTH_M - 60, data.worldX + dragOffsetRef.current.x));
-      const targetDepth = Math.max(25, Math.min(WORLD_DEPTH_M - 120, data.depthM + dragOffsetRef.current.depth));
+      const targetX = Math.max(50, Math.min(WORLD_WIDTH_M - 50, data.worldX + dragOffsetRef.current.x));
+      const targetDepth = Math.max(25, Math.min(WORLD_DEPTH_M - 100, data.depthM + dragOffsetRef.current.depth));
       setSubmersible((prev: Submersible) => ({
         ...prev,
         x: targetX,
@@ -352,15 +323,12 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
     let time = 0;
 
     const render = () => {
-      time += 0.02;
+      time += 0.015; // Slow, deliberate animation speed
       const w = canvas.width;
       const h = canvas.height;
 
-      // ── Coordinate transforms ──
-      const offsetX = isMissionActive ? worldOffsetX : 0;
-      const scaleX = (x: number) => ((x - offsetX) / WORLD_WIDTH_M) * w;
+      const scaleX = (x: number) => (x / WORLD_WIDTH_M) * w;
       const scaleY = (z: number) => (z / WORLD_DEPTH_M) * h;
-      const unscaleX = (px: number) => (px / w) * WORLD_WIDTH_M + offsetX;
 
       // Clear Canvas
       ctx.fillStyle = '#071018';
@@ -410,7 +378,7 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
       ctx.beginPath();
       ctx.moveTo(0, 0);
       for (let x = 0; x <= w; x += 15) {
-        const waveY = 3 * Math.sin(x * 0.015 + time * 2) + 2 * Math.cos(x * 0.03 - time);
+        const waveY = 3 * Math.sin(x * 0.015 + time * 1.5) + 2 * Math.cos(x * 0.03 - time * 0.8);
         ctx.lineTo(x, Math.max(1, waveY + 4));
       }
       ctx.lineTo(w, 0);
@@ -429,22 +397,19 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
           if (p.y < 0) p.y = WORLD_DEPTH_M;
           if (p.y > WORLD_DEPTH_M) p.y = 0;
 
-          const particleWorldX = isMissionActive ? p.x + offsetX : p.x;
-          const px = scaleX(particleWorldX);
-
+          const px = scaleX(p.x);
           if (px < -10 || px > w + 10) return;
-
           const py = scaleY(p.y);
 
           ctx.beginPath();
           if (p.type === 'caustic') {
-            ctx.fillStyle = `rgba(180, 240, 255, ${p.baseAlpha * (0.6 + 0.4 * Math.sin(time * 2 + p.x))})`;
+            ctx.fillStyle = `rgba(180, 240, 255, ${p.baseAlpha * (0.6 + 0.4 * Math.sin(time * 1.5 + p.x))})`;
             ctx.arc(px, py, p.size, 0, Math.PI * 2);
           } else if (p.type === 'thermocline') {
             ctx.fillStyle = `rgba(56, 189, 248, ${p.baseAlpha * 0.6})`;
             ctx.arc(px, py, p.size * 0.8, 0, Math.PI * 2);
           } else if (p.type === 'bioluminescent') {
-            const glow = 0.5 + 0.5 * Math.sin(time * 3 + p.y);
+            const glow = 0.5 + 0.5 * Math.sin(time * 2 + p.y);
             ctx.fillStyle = `rgba(52, 211, 153, ${p.baseAlpha * glow})`;
             ctx.shadowColor = '#34d399';
             ctx.shadowBlur = 4;
@@ -473,18 +438,15 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
         ctx.fillText(`${d}m`, 6, y - 4);
       }
 
-      // 5. Render Realistic Seafloor Terrain with High-Tech Geological Textures
+      // 5. Render Realistic Seafloor Terrain with Rich Geological Textures
       const seafloorPath = new Path2D();
       seafloorPath.moveTo(0, h);
       const stepPx = 6;
       const terrainPoints: { px: number; py: number; worldX: number; depthM: number }[] = [];
 
       for (let px = 0; px <= w; px += stepPx) {
-        const worldX = unscaleX(px);
-        const wrappedX = ((worldX % WORLD_WIDTH_M) + WORLD_WIDTH_M) % WORLD_WIDTH_M;
-        const rawDepthM = getSeafloorDepth(wrappedX, terrainType, WORLD_WIDTH_M);
-        const elev = isMissionActive ? terrainElevation : 0;
-        const depthM = Math.max(160, rawDepthM - elev);
+        const worldX = (px / w) * WORLD_WIDTH_M;
+        const depthM = getSeafloorDepth(worldX, terrainType, WORLD_WIDTH_M);
         const py = scaleY(depthM);
         terrainPoints.push({ px, py, worldX, depthM });
         seafloorPath.lineTo(px, py);
@@ -505,7 +467,7 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
       ctx.fillStyle = seafloorGrad;
       ctx.fill(seafloorPath);
 
-      // B. Sub-bottom Acoustic Strata Layers (Geological Sediment Horizons)
+      // B. Sub-bottom Acoustic Strata Layers (Geological Horizons)
       const strataOffsets = [28, 68, 125, 210, 320, 480];
       const strataStyles = [
         { color: 'rgba(67, 199, 217, 0.24)', dash: [8, 4], width: 1.5 },
@@ -545,7 +507,7 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
         ctx.stroke();
       }
 
-      // D. Vertical Core Sounding Reference Grid Lines (every 75px)
+      // D. Vertical Core Sounding Calibration Reference Lines
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.035)';
       ctx.lineWidth = 1;
       for (let px = 0; px <= w; px += 75) {
@@ -596,7 +558,7 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
       ctx.lineWidth = 1;
       ctx.stroke(seafloorPath);
 
-      // 6. Draw Acoustic Rays & Refraction Paths
+      // 6. Draw Acoustic Rays & Refraction Paths (Matching Active Band Color)
       rays.forEach((ray) => {
         if (ray.segments.length === 0) return;
 
@@ -604,7 +566,7 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
         ctx.beginPath();
         ctx.strokeStyle = ray.color;
         ctx.lineWidth = mode === 'rc-css' ? 2 : 1.5;
-        ctx.globalAlpha = 0.65;
+        ctx.globalAlpha = 0.68;
 
         ray.segments.forEach((seg: any, idx: number) => {
           const sx1 = scaleX(seg.x1);
@@ -618,8 +580,8 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
         ctx.stroke();
         ctx.globalAlpha = 1.0;
 
-        // Draw Animated Energy Pulse along the ray
-        const pulseRatio = (time * 1.5 + (ray.launchAngleDeg % 10) * 0.1) % 1;
+        // Draw Deliberate, Slow Animated Energy Pulse along the ray (time * 0.35)
+        const pulseRatio = (time * 0.35 + (ray.launchAngleDeg % 10) * 0.04) % 1;
         const totalSegments = ray.segments.length;
         const targetSegIndex = Math.min(totalSegments - 1, Math.floor(pulseRatio * totalSegments));
         const seg = ray.segments[targetSegIndex];
@@ -653,22 +615,22 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
         }
       });
 
-      // 7. Draw Expanding Acoustic Ping Wavefronts
+      // 7. Draw Expanding Acoustic Ping Wavefronts (Slow, Majestic Expansion at r + 1.2)
       pingWaveRadiiRef.current = pingWaveRadiiRef.current
-        .map((r) => r + 4)
+        .map((r) => r + 1.2)
         .filter((r) => {
           const auvX = scaleX(submersible.x);
           const auvY = scaleY(submersible.depth);
 
           ctx.strokeStyle = activeBand.color;
-          ctx.lineWidth = Math.max(0.5, 3 - r / 60);
-          ctx.globalAlpha = Math.max(0, 1 - r / 220);
+          ctx.lineWidth = Math.max(0.6, 2.8 - r / 100);
+          ctx.globalAlpha = Math.max(0, 1 - r / 300);
           ctx.beginPath();
           ctx.arc(auvX, auvY, r, 0, Math.PI * 2);
           ctx.stroke();
           ctx.globalAlpha = 1.0;
 
-          return r < 220;
+          return r < 300;
         });
 
       // 8. Draw AUV / Submersible Vehicle
@@ -678,7 +640,7 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
       ctx.save();
       ctx.translate(auvCanvasX, auvCanvasY);
 
-      // Acoustic Transducer Cone Indicator
+      // Acoustic Transducer Cone Indicator (Colored by Active Band)
       const beamSpreadRad = (submersible.beamSpreadDeg * Math.PI) / 180;
       const pingAngleRad = (submersible.pingAngleDeg * Math.PI) / 180;
       ctx.fillStyle = activeBand.color;
@@ -691,11 +653,11 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
       ctx.globalAlpha = 1.0;
 
       // Submersible Ambient Glow Halo
-      ctx.shadowColor = '#00f0ff';
-      ctx.shadowBlur = isMissionActive ? 14 : isDraggingAuv ? 22 : isHoveringAuv ? 16 : 10;
+      ctx.shadowColor = activeBand.color;
+      ctx.shadowBlur = isDraggingAuv ? 22 : isHoveringAuv ? 16 : 10;
 
-      // Precision Reticle & Lock HUD when hovering or dragging AUV in manual mode
-      if (!isMissionActive && (isHoveringAuv || isDraggingAuv)) {
+      // Precision Reticle & Lock HUD when hovering or dragging AUV
+      if (isHoveringAuv || isDraggingAuv) {
         ctx.save();
         ctx.strokeStyle = isDraggingAuv ? '#43C7D9' : '#63C79A';
         ctx.lineWidth = 1.6;
@@ -732,7 +694,7 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
         ctx.lineTo(reticleSize, reticleSize - cornerLen);
         ctx.stroke();
 
-        // Center dot
+        // Center crosshair dot
         ctx.fillStyle = '#ffffff';
         ctx.beginPath();
         ctx.arc(0, 0, 2, 0, Math.PI * 2);
@@ -743,7 +705,7 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
 
       // Main Hull Ellipse
       ctx.fillStyle = '#0f172a';
-      ctx.strokeStyle = isDraggingAuv ? '#43C7D9' : isHoveringAuv ? '#63C79A' : '#38bdf8';
+      ctx.strokeStyle = isDraggingAuv ? '#43C7D9' : isHoveringAuv ? '#63C79A' : activeBand.color;
       ctx.lineWidth = 2.2;
       ctx.beginPath();
       ctx.ellipse(0, 0, 24, 13, 0, 0, Math.PI * 2);
@@ -768,7 +730,7 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
       ctx.lineTo(4, -25);
       ctx.stroke();
 
-      // Transducer Array Pod (bottom)
+      // Transducer Array Pod (bottom) - Dynamic Active Band Color
       ctx.fillStyle = activeBand.color;
       ctx.beginPath();
       ctx.arc(0, 13, 5, 0, Math.PI);
@@ -783,8 +745,8 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
       // Propeller Cavitation Bubbles
       ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
       for (let b = 0; b < 3; b++) {
-        const bubbleX = -32 - b * 8 - (time * 20) % 10;
-        const bubbleY = Math.sin(time * 5 + b) * 3;
+        const bubbleX = -32 - b * 8 - (time * 15) % 10;
+        const bubbleY = Math.sin(time * 4 + b) * 3;
         ctx.beginPath();
         ctx.arc(bubbleX, bubbleY, 1.5 + b * 0.5, 0, Math.PI * 2);
         ctx.fill();
@@ -804,9 +766,9 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
       // 9. Draw AUV Telemetry Tag & Pressure Calculation
       const pressureBar = (1 + 0.1 * (submersible.depth / 10)).toFixed(1);
       ctx.font = 'bold 11px JetBrains Mono, monospace';
-      ctx.fillStyle = isDraggingAuv ? '#43C7D9' : '#38bdf8';
+      ctx.fillStyle = isDraggingAuv ? '#43C7D9' : activeBand.color;
       ctx.fillText(
-        `AUV-AQUAPULSE [${submersible.depth.toFixed(0)}m]${isDraggingAuv ? ' ◈ DRAG LOCK' : ''}`,
+        `AUV-AQUAPULSE [${submersible.depth.toFixed(0)}m] · ${activeBand.name.split(':')[0]}`,
         auvCanvasX - 60,
         auvCanvasY - 32
       );
@@ -819,17 +781,6 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
         auvCanvasX - 60,
         auvCanvasY - 18
       );
-
-      // 10. Mission Mode HUD overlay
-      if (isMissionActive) {
-        ctx.font = 'bold 10px JetBrains Mono, monospace';
-        ctx.fillStyle = 'rgba(67, 199, 217, 0.7)';
-        ctx.fillText(
-          `▸ AUTONOMOUS MISSION · STRAIGHT CRUISE (120m) · RANGE: ${Math.round(worldOffsetX)}m`,
-          16,
-          h - 14
-        );
-      }
 
       // Loop animation
       animationFrameRef.current = requestAnimationFrame(render);
@@ -851,9 +802,6 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
     submersible,
     isDraggingAuv,
     isHoveringAuv,
-    worldOffsetX,
-    terrainElevation,
-    isMissionActive,
   ]);
 
   const currentSoundSpeed = getOceanPropertiesAtDepth(layers, submersible.depth).soundSpeed;
@@ -867,50 +815,24 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
         border: '1px solid #20333D',
       }}
     >
-      {/* Top right in-situ sound speed readout */}
+      {/* Top right in-situ sound speed readout & active channel frequency */}
       <div
-        className="absolute top-3 right-4 z-10 font-mono text-[11px] pointer-events-none"
-        style={{ color: '#43C7D9' }}
+        className="absolute top-3 right-4 z-10 flex items-center gap-3 font-mono text-[11px] pointer-events-none"
       >
-        c(z) = {currentSoundSpeed.toFixed(1)} m/s
-      </div>
-
-      {/* Collision Warning Overlay — Critical Red Alert */}
-      {isMissionActive && collisionWarning && !collisionDismissed && (
-        <div
-          className="absolute top-2 left-1/2 -translate-x-1/2 z-20 flex items-center gap-3 px-5 py-2.5 rounded-md"
+        <span
+          className="px-2 py-0.5 rounded font-bold"
           style={{
-            background: 'rgba(220, 38, 38, 0.15)',
-            border: '1px solid rgba(239, 68, 68, 0.6)',
-            backdropFilter: 'blur(8px)',
-            animation: 'pulse 1.5s ease-in-out infinite',
+            background: `${activeBand.color}20`,
+            border: `1px solid ${activeBand.color}60`,
+            color: activeBand.color,
           }}
         >
-          <span
-            className="w-2.5 h-2.5 rounded-full shrink-0"
-            style={{ background: '#ef4444', boxShadow: '0 0 8px #ef4444' }}
-          />
-          <div className="flex flex-col">
-            <span className="font-mono font-bold text-[11px] tracking-wider" style={{ color: '#fca5a5' }}>
-              TERRAIN PROXIMITY WARNING
-            </span>
-            <span className="font-mono text-[10px]" style={{ color: '#fecaca' }}>
-              Seafloor {collisionDistanceM !== null ? `${Math.round(collisionDistanceM)}m` : '--'} below AUV at forward look-ahead
-            </span>
-          </div>
-          <button
-            onClick={() => setCollisionDismissed(true)}
-            className="ml-2 px-2 py-0.5 rounded text-[9px] font-mono font-bold cursor-pointer transition-colors"
-            style={{
-              background: 'rgba(239, 68, 68, 0.25)',
-              border: '1px solid rgba(239, 68, 68, 0.4)',
-              color: '#fca5a5',
-            }}
-          >
-            DISMISS
-          </button>
-        </div>
-      )}
+          {activeBand.fStart}–{activeBand.fEnd} kHz
+        </span>
+        <span style={{ color: '#43C7D9' }}>
+          c(z) = {currentSoundSpeed.toFixed(1)} m/s
+        </span>
+      </div>
 
       {/* Main Canvas Viewport with Precision Pointer Capture */}
       <canvas
@@ -922,13 +844,7 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
         className={`w-full h-full select-none touch-none ${
-          isMissionActive
-            ? 'cursor-default'
-            : isDraggingAuv
-            ? 'cursor-grabbing'
-            : isHoveringAuv
-            ? 'cursor-grab'
-            : 'cursor-crosshair'
+          isDraggingAuv ? 'cursor-grabbing' : isHoveringAuv ? 'cursor-grab' : 'cursor-crosshair'
         }`}
       />
 
@@ -942,17 +858,55 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
         }}
       >
         <div className="flex items-center space-x-6">
-          <span className="flex items-center space-x-1.5">
-            <span className="w-2 h-2 rounded-full inline-block" style={{ background: '#D9A441' }} />
-            <span>CH0: 100–140 kHz (Deep / Turbid)</span>
+          <span
+            className={`flex items-center space-x-1.5 transition-opacity duration-200 ${
+              activeBand.id === 'band-subbottom' ? 'opacity-100 font-bold' : 'opacity-60'
+            }`}
+          >
+            <span
+              className="w-2 h-2 rounded-full inline-block"
+              style={{
+                background: '#D9A441',
+                boxShadow: activeBand.id === 'band-subbottom' ? '0 0 8px #D9A441' : 'none',
+              }}
+            />
+            <span style={{ color: activeBand.id === 'band-subbottom' ? '#D9A441' : 'inherit' }}>
+              CH0: 100–140 kHz (Deep &gt;700m)
+            </span>
           </span>
-          <span className="flex items-center space-x-1.5">
-            <span className="w-2 h-2 rounded-full inline-block" style={{ background: '#63C79A' }} />
-            <span>CH1: 200–250 kHz (Thermocline)</span>
+
+          <span
+            className={`flex items-center space-x-1.5 transition-opacity duration-200 ${
+              activeBand.id === 'band-midwater' ? 'opacity-100 font-bold' : 'opacity-60'
+            }`}
+          >
+            <span
+              className="w-2 h-2 rounded-full inline-block"
+              style={{
+                background: '#63C79A',
+                boxShadow: activeBand.id === 'band-midwater' ? '0 0 8px #63C79A' : 'none',
+              }}
+            />
+            <span style={{ color: activeBand.id === 'band-midwater' ? '#63C79A' : 'inherit' }}>
+              CH1: 200–250 kHz (Thermocline 250–700m)
+            </span>
           </span>
-          <span className="flex items-center space-x-1.5">
-            <span className="w-2 h-2 rounded-full inline-block" style={{ background: '#9B8EC4' }} />
-            <span>CH2: 400–480 kHz (High-Res Bathymetry)</span>
+
+          <span
+            className={`flex items-center space-x-1.5 transition-opacity duration-200 ${
+              activeBand.id === 'band-highres' ? 'opacity-100 font-bold' : 'opacity-60'
+            }`}
+          >
+            <span
+              className="w-2 h-2 rounded-full inline-block"
+              style={{
+                background: '#9B8EC4',
+                boxShadow: activeBand.id === 'band-highres' ? '0 0 8px #9B8EC4' : 'none',
+              }}
+            />
+            <span style={{ color: activeBand.id === 'band-highres' ? '#9B8EC4' : 'inherit' }}>
+              CH2: 400–480 kHz (Shallow 0–250m)
+            </span>
           </span>
         </div>
       </div>

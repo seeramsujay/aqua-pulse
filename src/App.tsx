@@ -8,7 +8,6 @@ import {
   getSeafloorDepth,
 } from './physics/oceanAcoustics';
 import { SCENARIO_PRESETS } from './physics/presets';
-import { MissionSimulator } from './simulation/MissionSimulator';
 import { Navbar } from './components/common/Navbar';
 import { BootSequence } from './components/common/BootSequence';
 import { MissionContextBar } from './components/common/MissionContextBar';
@@ -43,8 +42,6 @@ import {
   Layers,
   Anchor,
   Terminal,
-  AlertTriangle,
-  Navigation,
   Crosshair,
   Zap,
 } from 'lucide-react';
@@ -113,16 +110,6 @@ export function App() {
   });
 
   const triggerPingRef = useRef<(() => void) | null>(null);
-
-  // ── Autonomous Mission Simulation State ──
-  const missionSimRef = useRef<MissionSimulator>(new MissionSimulator());
-  const missionRafRef = useRef<number | null>(null);
-  const [isMissionRunning, setIsMissionRunning] = useState<boolean>(false);
-  const [missionWorldOffsetX, setMissionWorldOffsetX] = useState<number>(0);
-  const [missionTerrainElevation, setMissionTerrainElevation] = useState<number>(0);
-  const [missionCollisionWarning, setMissionCollisionWarning] = useState<boolean>(false);
-  const [missionCollisionDistanceM, setMissionCollisionDistanceM] = useState<number | null>(null);
-  const [missionPhaseLabel, setMissionPhaseLabel] = useState<string>('');
 
   const [echoes, setEchoes] = useState<EchoReturn[]>([]);
   const [soundings, setSoundings] = useState<BathymetryPoint[]>([]);
@@ -225,97 +212,55 @@ export function App() {
         e.preventDefault();
         triggerPingWithAudio();
       }
-      // Arrow key manual control disabled during autonomous mission
-      if (!isMissionRunning) {
-        if (e.code === 'ArrowRight') {
-          setSubmersible((prev) => ({ ...prev, x: Math.min(1900, prev.x + 30) }));
-        } else if (e.code === 'ArrowLeft') {
-          setSubmersible((prev) => ({ ...prev, x: Math.max(100, prev.x - 30) }));
-        } else if (e.code === 'ArrowUp') {
-          setSubmersible((prev) => ({ ...prev, depth: Math.max(30, prev.depth - 25) }));
-        } else if (e.code === 'ArrowDown') {
-          setSubmersible((prev) => ({ ...prev, depth: Math.min(1300, prev.depth + 25) }));
-        }
+      if (e.code === 'ArrowRight') {
+        setSubmersible((prev) => ({ ...prev, x: Math.min(1900, prev.x + 30) }));
+      } else if (e.code === 'ArrowLeft') {
+        setSubmersible((prev) => ({ ...prev, x: Math.max(100, prev.x - 30) }));
+      } else if (e.code === 'ArrowUp') {
+        setSubmersible((prev) => ({ ...prev, depth: Math.max(30, prev.depth - 25) }));
+      } else if (e.code === 'ArrowDown') {
+        setSubmersible((prev) => ({ ...prev, depth: Math.min(1300, prev.depth + 25) }));
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [triggerPingWithAudio, isMissionRunning]);
+  }, [triggerPingWithAudio]);
 
-  // ── Autonomous Mission Simulation Loop ──
-  const startMission = useCallback(() => {
-    const sim = missionSimRef.current;
-    sim.setTerrainQuery(getSeafloorDepth, activeScenario.terrainType);
-    const startEvents = sim.start();
-    startEvents.forEach((evt) => addMissionEvent(evt));
-    setIsMissionRunning(true);
-    setIsAutoPinging(true); // Enable auto-pinging during mission
-    setAutoRoll(false); // Disable auto-roll; mission controls channels
-
-    const missionLoop = () => {
-      const { state, events } = sim.tick();
-
-      // Update submersible position: AUV stays at world center
-      setSubmersible((prev) => ({
-        ...prev,
-        x: state.worldOffsetX + 1000, // Center of the 2000m world
-        depth: state.currentDepth,
-      }));
-
-      // Update world offset and terrain elevation for scrolling
-      setMissionWorldOffsetX(state.worldOffsetX);
-      setMissionTerrainElevation(state.terrainElevation);
-
-      // Update collision state
-      setMissionCollisionWarning(state.collisionWarning);
-      setMissionCollisionDistanceM(state.collisionDistanceM);
-      setMissionPhaseLabel(state.currentPhase.label);
-
-      // Update environment knobs from mission phase
-      setTurbidity(state.currentPhase.environment.turbidity);
-      setTemperature(state.currentPhase.environment.temperature);
-      setSalinity(state.currentPhase.environment.salinity);
-
-      // Switch channel based on mission phase
-      setActiveBandIndex(state.currentPhase.channelIndex);
-
-      // Emit queued events
-      events.forEach((evt) => addMissionEvent(evt));
-
-      if (state.isRunning && !state.missionComplete) {
-        missionRafRef.current = requestAnimationFrame(missionLoop);
-      } else {
-        // Mission ended
-        setIsMissionRunning(false);
-        setIsAutoPinging(false);
-      }
-    };
-
-    missionRafRef.current = requestAnimationFrame(missionLoop);
-  }, [activeScenario.terrainType, addMissionEvent]);
-
-  const stopMission = useCallback(() => {
-    const sim = missionSimRef.current;
-    const stopEvents = sim.stop();
-    stopEvents.forEach((evt) => addMissionEvent(evt));
-    setIsMissionRunning(false);
-    setIsAutoPinging(false);
-    setMissionTerrainElevation(0);
-    if (missionRafRef.current) {
-      cancelAnimationFrame(missionRafRef.current);
-      missionRafRef.current = null;
-    }
-  }, [addMissionEvent]);
-
-  // Cleanup mission on unmount
+  // ── Cognitive Frequency & Color Adaptation Based on Ocean Depth ──
   useEffect(() => {
-    return () => {
-      if (missionRafRef.current) {
-        cancelAnimationFrame(missionRafRef.current);
-      }
-    };
-  }, []);
+    // Determine optimal acoustic channel by depth z:
+    // CH2 (400-480 kHz, Purple): Shallow epipelagic water (0 - 250m)
+    // CH1 (200-250 kHz, Emerald): Thermocline layer (250m - 700m)
+    // CH0 (100-140 kHz, Amber): Deep strata & abyss (700m+)
+    let targetIndex = 0;
+    if (submersible.depth <= 250) {
+      targetIndex = 2; // CH2 High-Res Bathymetry
+    } else if (submersible.depth <= 700) {
+      targetIndex = 1; // CH1 Thermocline Profiler
+    } else {
+      targetIndex = 0; // CH0 Deep Strata Penetrator
+    }
+
+    if (targetIndex !== activeBandIndex) {
+      setActiveBandIndex(targetIndex);
+      const targetBand = bands[targetIndex];
+      addMissionEvent({
+        type: 'CHANNEL_ROLL',
+        title: `TinyML Channel Hop → CH${targetIndex} (${targetBand?.fStart}–${targetBand?.fEnd} kHz)`,
+        details: `Submersible depth ${Math.round(submersible.depth)}m. Acoustic frequency switched to ${targetBand?.name.split(':')[1]?.trim() || targetBand?.name}. Beam color set to ${targetBand?.color}.`,
+      });
+    }
+
+    // Dynamic environment adaptation based on water depth
+    const normDepth = Math.max(0, Math.min(1, submersible.depth / 1300));
+    setTemperature(Math.max(2.5, 24.0 - normDepth * 20.5));
+    setSalinity(35.2 - normDepth * 0.5);
+
+    const seafloorZ = getSeafloorDepth(submersible.x, activeScenario.terrainType, 2000);
+    const altitude = Math.max(1, seafloorZ - submersible.depth);
+    setTurbidity(altitude < 120 ? Math.min(65, 8 + (120 - altitude) * 0.45) : Math.max(5, 5 + normDepth * 18));
+  }, [submersible.depth, submersible.x, activeBandIndex, bands, activeScenario.terrainType, addMissionEvent]);
 
   const handleEchoDetected = useCallback(
     (returns: EchoReturn[] | EchoReturn) => {
@@ -460,17 +405,15 @@ export function App() {
               {/* ── LEFT PANEL (≈ 260–290px) ── */}
               <div className="w-full lg:w-[275px] shrink-0 flex flex-col gap-3 overflow-y-auto pr-0.5 scrollbar-thin">
                 {/* MISSION STATUS */}
-                <div className={`instrument-panel p-3.5 flex flex-col gap-3 ${isMissionRunning ? 'mission-active-panel' : ''}`}>
+                <div className="instrument-panel p-3.5 flex flex-col gap-3">
                   <div className="flex items-center justify-between">
                     <div className="text-[11px] font-semibold tracking-wider text-[#7E93A4] font-mono uppercase">
                       MISSION STATUS
                     </div>
-                    {isMissionRunning && (
-                      <span className="flex items-center gap-1.5 text-[9px] font-mono font-bold tracking-wider" style={{ color: '#63C79A' }}>
-                        <span className="status-dot-live" style={{ backgroundColor: '#63C79A' }} />
-                        LIVE
-                      </span>
-                    )}
+                    <span className="flex items-center gap-1.5 text-[9px] font-mono font-bold tracking-wider" style={{ color: '#63C79A' }}>
+                      <span className="status-dot-live" style={{ backgroundColor: '#63C79A' }} />
+                      LIVE
+                    </span>
                   </div>
 
                   <div className="flex flex-col gap-3">
@@ -537,23 +480,10 @@ export function App() {
                       <div className="flex flex-col">
                         <span className="text-[10px] font-mono uppercase text-[#7E93A4]">STATE</span>
                         <span className="text-[14px] font-bold font-mono text-slate-100 leading-tight uppercase">
-                          {isMissionRunning ? 'AUTONOMOUS' : submersible.status === 'transmitting' ? 'PINGING' : submersible.status.toUpperCase()}
+                          {submersible.status === 'transmitting' ? 'TRANSMITTING' : submersible.status === 'propagating' ? 'PROPAGATING' : 'READY'}
                         </span>
                       </div>
                     </div>
-
-                    {/* MISSION PHASE (shown during autonomous mission) */}
-                    {isMissionRunning && (
-                      <div className="flex items-center gap-3">
-                        <Sparkles className="w-4 h-4 text-[#D9A441] shrink-0" />
-                        <div className="flex flex-col">
-                          <span className="text-[10px] font-mono uppercase text-[#7E93A4]">MISSION PHASE</span>
-                          <span className="text-[12px] font-bold font-mono leading-tight" style={{ color: '#D9A441' }}>
-                            {missionPhaseLabel}
-                          </span>
-                        </div>
-                      </div>
-                    )}
 
                     {/* AUTO-SWEEP */}
                     <div className="flex items-center justify-between pt-1 border-t border-[#182935]">
@@ -570,59 +500,61 @@ export function App() {
                   </div>
                 </div>
 
-                {/* MISSION PHASE TIMELINE (shown during autonomous mission) */}
-                {isMissionRunning && (
-                  <div className="instrument-panel p-3.5 flex flex-col gap-2.5">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1.5 text-[11px] font-semibold tracking-wider text-[#7E93A4] font-mono uppercase">
-                        <Navigation className="w-3.5 h-3.5 text-[#43C7D9]" />
-                        <span>MISSION TIMELINE</span>
-                      </div>
-                      {missionCollisionWarning && (
-                        <span className="flex items-center gap-1 text-[9px] font-mono text-red-400 font-bold animate-pulse">
-                          <AlertTriangle className="w-3 h-3 text-red-400" />
-                          PROXIMITY
-                        </span>
-                      )}
+                {/* DEPTH-COGNITIVE ACOUSTIC REGIME */}
+                <div className="instrument-panel p-3.5 flex flex-col gap-2.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 text-[11px] font-semibold tracking-wider text-[#7E93A4] font-mono uppercase">
+                      <Zap className="w-3.5 h-3.5 text-[#43C7D9]" />
+                      <span>COGNITIVE REGIME</span>
                     </div>
-                    <div className="flex items-center justify-between gap-1.5">
-                      {['Deep Basin', 'Slope Ascent', 'Ridge Crest'].map((phase, idx) => {
-                        const phaseColors = ['#9B8EC4', '#63C79A', '#D9A441'];
-                        const channelIndices = [2, 1, 0];
-                        const currentPhaseIdx = [2, 1, 0].indexOf(bands[activeBandIndex] ? activeBandIndex : 0);
-                        const isActive = channelIndices[idx] === activeBandIndex;
-                        const isComplete = idx < currentPhaseIdx;
-                        return (
-                          <div key={phase} className="flex flex-col items-center gap-1 flex-1">
-                            <div
-                              className={`mission-phase-dot ${isActive ? 'active' : ''} ${isComplete ? 'complete' : ''}`}
-                              style={isActive ? { borderColor: phaseColors[idx], background: phaseColors[idx], boxShadow: `0 0 8px ${phaseColors[idx]}60` } : {}}
+                    <span
+                      className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold"
+                      style={{
+                        background: `${activeBand.color}20`,
+                        color: activeBand.color,
+                        border: `1px solid ${activeBand.color}50`,
+                      }}
+                    >
+                      CH{activeBandIndex} ACTIVE
+                    </span>
+                  </div>
+
+                  <div className="flex flex-col gap-1.5 font-mono text-[10px]">
+                    {[
+                      { bandIdx: 2, label: 'Shallow (0–250m)', freq: '400–480 kHz', color: '#9B8EC4' },
+                      { bandIdx: 1, label: 'Thermocline (250–700m)', freq: '200–250 kHz', color: '#63C79A' },
+                      { bandIdx: 0, label: 'Deep Abyss (>700m)', freq: '100–140 kHz', color: '#D9A441' },
+                    ].map((regime) => {
+                      const isCurrent = activeBandIndex === regime.bandIdx;
+                      return (
+                        <div
+                          key={regime.bandIdx}
+                          className="flex items-center justify-between p-1.5 rounded transition-all"
+                          style={{
+                            background: isCurrent ? `${regime.color}15` : 'transparent',
+                            border: `1px solid ${isCurrent ? regime.color : '#162733'}`,
+                          }}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span
+                              className="w-2 h-2 rounded-full shrink-0"
+                              style={{
+                                background: regime.color,
+                                boxShadow: isCurrent ? `0 0 8px ${regime.color}` : 'none',
+                              }}
                             />
-                            <span className="text-[9px] font-mono" style={{ color: isActive ? phaseColors[idx] : 'var(--text-dim)' }}>
-                              {phase}
-                            </span>
-                            <span className="text-[8px] font-mono" style={{ color: 'var(--text-dim)' }}>
-                              CH{channelIndices[idx]}
+                            <span style={{ color: isCurrent ? 'var(--text-primary)' : 'var(--text-dim)' }}>
+                              {regime.label}
                             </span>
                           </div>
-                        );
-                      })}
-                    </div>
-                    {/* Progress bar */}
-                    <div className="mission-progress-bar mt-1">
-                      <div
-                        className="mission-progress-fill"
-                        style={{
-                          width: `${Math.min(100, (missionWorldOffsetX / 10000) * 100)}%`,
-                        }}
-                      />
-                    </div>
-                    <div className="flex items-center justify-between text-[9px] font-mono" style={{ color: 'var(--text-dim)' }}>
-                      <span>RANGE: {Math.round(missionWorldOffsetX)}m</span>
-                      <span>{Math.min(100, Math.round((missionWorldOffsetX / 10000) * 100))}%</span>
-                    </div>
+                          <span style={{ color: isCurrent ? regime.color : 'var(--text-dim)' }}>
+                            {regime.freq}
+                          </span>
+                        </div>
+                      );
+                    })}
                   </div>
-                )}
+                </div>
 
                 {/* ENVIRONMENT */}
                 <div className="instrument-panel p-3.5 flex flex-col gap-2.5">
@@ -719,11 +651,6 @@ export function App() {
                   isAutoPinging={isAutoPinging}
                   turbidity={turbidity}
                   triggerPingRef={triggerPingRef}
-                  worldOffsetX={missionWorldOffsetX}
-                  terrainElevation={missionTerrainElevation}
-                  isMissionActive={isMissionRunning}
-                  collisionWarning={missionCollisionWarning}
-                  collisionDistanceM={missionCollisionDistanceM}
                 />
               </div>
 
@@ -731,32 +658,6 @@ export function App() {
               <div className="w-full lg:w-[325px] shrink-0 flex flex-col gap-3 overflow-y-auto pl-0.5">
                 {/* QUICK CONTROLS */}
                 <div className="instrument-panel p-3.5 flex flex-col gap-3">
-                  {/* AUTONOMOUS MISSION CONTROL BUTTON */}
-                  <button
-                    id="mission-control-btn"
-                    onClick={isMissionRunning ? stopMission : startMission}
-                    className="w-full py-2.5 px-4 rounded font-mono font-bold text-xs tracking-wider flex items-center justify-center gap-2 transition-all active:scale-[0.98] hover:brightness-110 shadow-sm mb-1"
-                    style={{
-                      background: isMissionRunning
-                        ? 'rgba(239, 68, 68, 0.2)'
-                        : 'rgba(99, 199, 154, 0.15)',
-                      border: `1px solid ${isMissionRunning ? 'rgba(239, 68, 68, 0.5)' : 'rgba(99, 199, 154, 0.5)'}`,
-                      color: isMissionRunning ? '#fca5a5' : '#63C79A',
-                    }}
-                  >
-                    <span
-                      className="w-2 h-2 rounded-full inline-block"
-                      style={{
-                        background: isMissionRunning ? '#ef4444' : '#63C79A',
-                        boxShadow: `0 0 6px ${isMissionRunning ? '#ef4444' : '#63C79A'}`,
-                        animation: isMissionRunning ? 'pulse 1.5s ease-in-out infinite' : 'none',
-                      }}
-                    />
-                    <span className="font-extrabold text-[11px] tracking-wider">
-                      {isMissionRunning ? 'HALT MISSION' : 'START AUTONOMOUS MISSION'}
-                    </span>
-                  </button>
-
                   <div className="text-[11px] font-semibold tracking-wider text-[#7E93A4] font-mono uppercase">
                     QUICK CONTROLS
                   </div>
@@ -972,11 +873,6 @@ export function App() {
                       isAutoPinging={isAutoPinging}
                       turbidity={turbidity}
                       triggerPingRef={triggerPingRef}
-                      worldOffsetX={missionWorldOffsetX}
-                      terrainElevation={missionTerrainElevation}
-                      isMissionActive={isMissionRunning}
-                      collisionWarning={missionCollisionWarning}
-                      collisionDistanceM={missionCollisionDistanceM}
                     />
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
@@ -1408,9 +1304,9 @@ export function App() {
               >
                 ↑↓←→
               </kbd>
-              <span>Steer AUV (Manual Mode)</span>
+              <span>Steer AUV</span>
             </span>
-            <span>· {isMissionRunning ? 'AUTONOMOUS MISSION ACTIVE' : 'Drag Submersible on Viewport'}</span>
+            <span>· Drag Submersible with Cursor</span>
           </div>
         </footer>
       )}
