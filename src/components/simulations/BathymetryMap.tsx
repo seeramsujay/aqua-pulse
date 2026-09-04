@@ -158,7 +158,11 @@ export const BathymetryMap: React.FC<BathymetryMapProps> = ({ soundings, terrain
           border: '1px solid var(--border-subtle)',
         }}
       >
-        <svg width={svgWidth} height={svgHeight} className="w-full h-full">
+        <svg
+          viewBox={`0 0 ${svgWidth} ${svgHeight}`}
+          preserveAspectRatio="none"
+          className="w-full h-full"
+        >
           <defs>
             <linearGradient id="emeraldAreaGrad" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="rgba(99, 199, 154, 0.15)" />

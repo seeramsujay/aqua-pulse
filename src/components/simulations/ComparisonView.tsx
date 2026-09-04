@@ -4,6 +4,7 @@ import { useAnimatedValue } from '../../hooks/useAnimatedValue';
 
 interface ComparisonViewProps {
   onSelectMode: (mode: 'rc-css' | 'traditional-cw') => void;
+  initialTab?: ActiveTab;
 }
 
 type ActiveTab = 'comparison' | 'hfm';
@@ -96,10 +97,14 @@ const HFMDopplerCanvas: React.FC<{ speed: number; chirpType: 'LFM' | 'HFM' }> = 
 };
 
 // ── Main Component ────────────────────────────────────────────────────────────
-export const ComparisonView: React.FC<ComparisonViewProps> = ({ onSelectMode }) => {
+export const ComparisonView: React.FC<ComparisonViewProps> = ({ onSelectMode, initialTab = 'comparison' }) => {
   const [hasLoaded, setHasLoaded] = useState(false);
-  const [activeTab, setActiveTab] = useState<ActiveTab>('comparison');
+  const [activeTab, setActiveTab] = useState<ActiveTab>(initialTab);
   const [auvSpeed, setAuvSpeed] = useState(2.0);
+
+  useEffect(() => {
+    setActiveTab(initialTab);
+  }, [initialTab]);
 
   useEffect(() => {
     const timer = setTimeout(() => setHasLoaded(true), 100);

@@ -322,10 +322,22 @@ export function App() {
         setIsAudioEnabled={setIsAudioEnabled}
       />
 
+      {/* Auto-sweep Status Ribbon (Indicating Autonomous Multi-Tone Transmission) */}
+      {isAutoPinging && (
+        <div className="bg-emerald-950/40 border-b border-emerald-500/30 px-4 py-1 flex items-center justify-center gap-2">
+          <span className="w-1.5 h-1.5 rounded-full inline-block bg-emerald-400 animate-pulse" />
+          <span className="font-mono text-[10px] text-emerald-300 tracking-widest uppercase">
+            Auto-Sweep Active — RC-CSS Stepped Multi-Tone Transmission
+          </span>
+        </div>
+      )}
+
       {/* Main Layout */}
       <main
         className={`flex-1 w-full mx-auto ${
-          activeTab === 'MISSION' ? 'max-w-[1920px] px-4 py-3' : 'max-w-7xl px-4 py-4'
+          activeTab === 'MISSION'
+            ? 'max-w-[1920px] px-4 pt-2.5 pb-2 h-[calc(100vh-76px)] overflow-hidden'
+            : 'max-w-7xl px-4 py-4'
         }`}
       >
         {/* Mission Context Bar Strip (shown on non-MISSION tabs) */}
@@ -343,24 +355,22 @@ export function App() {
         )}
 
         {/* Tab-driven Content Router */}
-        <div className={activeTab === 'MISSION' ? 'w-full' : 'mt-4'}>
+        <div className={activeTab === 'MISSION' ? 'w-full h-full' : 'mt-4'}>
           {/* ── 1. MISSION SCREEN (3-Column Layout Matching Mockup) ── */}
           {activeTab === 'MISSION' && (
-            <div className="flex flex-col lg:flex-row gap-3.5 w-full h-[calc(100vh-125px)] min-h-[620px]">
+            <div className="flex flex-col lg:flex-row gap-3.5 w-full h-full">
               {/* ── LEFT PANEL (≈ 260–290px) ── */}
-              <div className="w-full lg:w-[275px] shrink-0 flex flex-col gap-3 overflow-y-auto pr-0.5">
+              <div className="w-full lg:w-[275px] shrink-0 flex flex-col gap-3 overflow-y-auto pr-0.5 scrollbar-thin">
                 {/* MISSION STATUS */}
                 <div className="instrument-panel p-3.5 flex flex-col gap-3">
                   <div className="text-[11px] font-semibold tracking-wider text-[#7E93A4] font-mono uppercase">
                     MISSION STATUS
                   </div>
 
-                  <div className="flex flex-col gap-2.5">
+                  <div className="flex flex-col gap-3">
                     {/* DEPTH */}
                     <div className="flex items-center gap-3">
-                      <div className="w-6 h-6 rounded flex items-center justify-center bg-[#071018] border border-[#20333D] text-[#43C7D9] shrink-0">
-                        <Gauge className="w-3.5 h-3.5" />
-                      </div>
+                      <Gauge className="w-4 h-4 text-[#43C7D9] shrink-0" />
                       <div className="flex flex-col">
                         <span className="text-[10px] font-mono uppercase text-[#7E93A4]">DEPTH</span>
                         <span className="text-[15px] font-bold font-mono text-slate-100 leading-tight">
@@ -371,9 +381,7 @@ export function App() {
 
                     {/* CHANNEL */}
                     <div className="flex items-center gap-3">
-                      <div className="w-6 h-6 rounded flex items-center justify-center bg-[#071018] border border-[#20333D] text-[#43C7D9] shrink-0">
-                        <Activity className="w-3.5 h-3.5" />
-                      </div>
+                      <Activity className="w-4 h-4 text-[#43C7D9] shrink-0" />
                       <div className="flex flex-col">
                         <span className="text-[10px] font-mono uppercase text-[#7E93A4]">CHANNEL</span>
                         <span className="text-[13px] font-bold font-mono text-slate-100 leading-tight">
@@ -384,9 +392,7 @@ export function App() {
 
                     {/* SNR */}
                     <div className="flex items-center gap-3">
-                      <div className="w-6 h-6 rounded flex items-center justify-center bg-[#071018] border border-[#20333D] text-[#43C7D9] shrink-0">
-                        <Signal className="w-3.5 h-3.5" />
-                      </div>
+                      <Signal className="w-4 h-4 text-[#43C7D9] shrink-0" />
                       <div className="flex flex-col">
                         <span className="text-[10px] font-mono uppercase text-[#7E93A4]">SNR</span>
                         <span className="text-[15px] font-bold font-mono text-slate-100 leading-tight">
@@ -397,9 +403,7 @@ export function App() {
 
                     {/* SOUND SPEED c(z) */}
                     <div className="flex items-center gap-3">
-                      <div className="w-6 h-6 rounded flex items-center justify-center bg-[#071018] border border-[#20333D] text-[#43C7D9] shrink-0">
-                        <Waves className="w-3.5 h-3.5" />
-                      </div>
+                      <Waves className="w-4 h-4 text-[#43C7D9] shrink-0" />
                       <div className="flex flex-col">
                         <span className="text-[10px] font-mono uppercase text-[#7E93A4]">SOUND SPEED c(z)</span>
                         <span className="text-[15px] font-bold font-mono text-slate-100 leading-tight">
@@ -410,9 +414,7 @@ export function App() {
 
                     {/* ENERGY SAVED */}
                     <div className="flex items-center gap-3">
-                      <div className="w-6 h-6 rounded flex items-center justify-center bg-[#071018] border border-[#20333D] text-[#63C79A] shrink-0">
-                        <Leaf className="w-3.5 h-3.5" />
-                      </div>
+                      <Leaf className="w-4 h-4 text-[#63C79A] shrink-0" />
                       <div className="flex flex-col">
                         <span className="text-[10px] font-mono uppercase text-[#7E93A4]">ENERGY SAVED</span>
                         <span className="text-[15px] font-bold font-mono leading-tight" style={{ color: '#63C79A' }}>
@@ -423,9 +425,7 @@ export function App() {
 
                     {/* STATE */}
                     <div className="flex items-center gap-3">
-                      <div className="w-6 h-6 rounded flex items-center justify-center bg-[#071018] border border-[#20333D] text-[#43C7D9] shrink-0">
-                        <CircleDot className="w-3.5 h-3.5" />
-                      </div>
+                      <CircleDot className="w-4 h-4 text-[#43C7D9] shrink-0" />
                       <div className="flex flex-col">
                         <span className="text-[10px] font-mono uppercase text-[#7E93A4]">STATE</span>
                         <span className="text-[14px] font-bold font-mono text-slate-100 leading-tight uppercase">
@@ -437,9 +437,7 @@ export function App() {
                     {/* AUTO-SWEEP */}
                     <div className="flex items-center justify-between pt-1 border-t border-[#182935]">
                       <div className="flex items-center gap-3">
-                        <div className="w-6 h-6 rounded flex items-center justify-center bg-[#071018] border border-[#20333D] text-[#43C7D9] shrink-0">
-                          <RotateCw className="w-3.5 h-3.5" />
-                        </div>
+                        <RotateCw className="w-4 h-4 text-[#43C7D9] shrink-0" />
                         <span className="text-[10px] font-mono uppercase text-[#7E93A4] font-semibold">AUTO-SWEEP</span>
                       </div>
                       <ToggleSwitch
@@ -802,35 +800,13 @@ export function App() {
               )}
 
               {acousticsSubTab === 'signal' && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                  <div style={{ minHeight: '320px', width: '100%' }}>
-                    <SpectrogramWaterfall
-                      echoes={echoes}
-                      activeBand={activeBand}
-                      mode={mode}
-                      isPinging={submersible.pingActive}
-                    />
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
-                    <div className="telemetry-cell">
-                      <div className="telemetry-label">Peak SNR</div>
-                      <div className="telemetry-value" style={{ color: latestEcho && latestEcho.snrDb > 8 ? '#63C79A' : '#D9A441' }}>
-                        {latestEcho ? `${latestEcho.snrDb > 0 ? '+' : ''}${latestEcho.snrDb.toFixed(1)} dB` : '--'}
-                      </div>
-                    </div>
-                    <div className="telemetry-cell">
-                      <div className="telemetry-label">Dechirp Gain</div>
-                      <div className="telemetry-value" style={{ color: '#63C79A' }}>
-                        +{processingGainDb.toFixed(1)} dB
-                      </div>
-                    </div>
-                    <div className="telemetry-cell">
-                      <div className="telemetry-label">2-Way TOF</div>
-                      <div className="telemetry-value" style={{ color: '#43C7D9' }}>
-                        {latestEcho ? `${latestEcho.travelTimeMs.toFixed(1)} ms` : '--'}
-                      </div>
-                    </div>
-                  </div>
+                <div style={{ minHeight: '380px', width: '100%' }}>
+                  <SpectrogramWaterfall
+                    echoes={echoes}
+                    activeBand={activeBand}
+                    mode={mode}
+                    isPinging={submersible.pingActive}
+                  />
                 </div>
               )}
             </div>
@@ -935,7 +911,7 @@ export function App() {
               )}
 
               {waveformsSubTab === 'hfm' && (
-                <ComparisonView onSelectMode={(selected) => setMode(selected)} />
+                <ComparisonView onSelectMode={(selected) => setMode(selected)} initialTab="hfm" />
               )}
             </div>
           )}
@@ -1110,51 +1086,53 @@ export function App() {
         </div>
       </main>
 
-      {/* Footer */}
-      <footer
-        className="font-mono text-[10px] flex flex-wrap items-center justify-between gap-2"
-        style={{
-          background: 'var(--bg-surface)',
-          borderTop: '1px solid var(--border-default)',
-          padding: '10px 16px',
-          color: 'var(--text-muted)',
-        }}
-      >
-        <div className="flex items-center gap-3">
-          <span style={{ color: 'var(--text-secondary)' }}>AquaPulse Ground Station Console</span>
-          <span style={{ color: 'var(--border-default)' }}>·</span>
-          <span style={{ color: '#43C7D9' }}>SIH26058 MoES / NIOT Autonomous Bathymetric Sounding Solution</span>
-        </div>
-        <div className="flex items-center gap-3" style={{ color: 'var(--text-dim)' }}>
-          <span className="flex items-center gap-1">
-            <kbd
-              className="px-1.5 py-0.5 rounded text-[10px]"
-              style={{
-                background: 'var(--bg-inset)',
-                border: '1px solid var(--border-default)',
-                color: 'var(--text-secondary)',
-              }}
-            >
-              Space
-            </kbd>
-            <span>Transmit Ping</span>
-          </span>
-          <span className="flex items-center gap-1">
-            <kbd
-              className="px-1.5 py-0.5 rounded text-[10px]"
-              style={{
-                background: 'var(--bg-inset)',
-                border: '1px solid var(--border-default)',
-                color: 'var(--text-secondary)',
-              }}
-            >
-              ↑↓←→
-            </kbd>
-            <span>Steer AUV</span>
-          </span>
-          <span>· Drag Submersible on Viewport</span>
-        </div>
-      </footer>
+      {/* Footer (shown on sub-pages) */}
+      {activeTab !== 'MISSION' && (
+        <footer
+          className="font-mono text-[10px] flex flex-wrap items-center justify-between gap-2"
+          style={{
+            background: 'var(--bg-surface)',
+            borderTop: '1px solid var(--border-default)',
+            padding: '10px 16px',
+            color: 'var(--text-muted)',
+          }}
+        >
+          <div className="flex items-center gap-3">
+            <span style={{ color: 'var(--text-secondary)' }}>AquaPulse Ground Station Console</span>
+            <span style={{ color: 'var(--border-default)' }}>·</span>
+            <span style={{ color: '#43C7D9' }}>SIH26058 MoES / NIOT Autonomous Bathymetric Sounding Solution</span>
+          </div>
+          <div className="flex items-center gap-3" style={{ color: 'var(--text-dim)' }}>
+            <span className="flex items-center gap-1">
+              <kbd
+                className="px-1.5 py-0.5 rounded text-[10px]"
+                style={{
+                  background: 'var(--bg-inset)',
+                  border: '1px solid var(--border-default)',
+                  color: 'var(--text-secondary)',
+                }}
+              >
+                Space
+              </kbd>
+              <span>Transmit Ping</span>
+            </span>
+            <span className="flex items-center gap-1">
+              <kbd
+                className="px-1.5 py-0.5 rounded text-[10px]"
+                style={{
+                  background: 'var(--bg-inset)',
+                  border: '1px solid var(--border-default)',
+                  color: 'var(--text-secondary)',
+                }}
+              >
+                ↑↓←→
+              </kbd>
+              <span>Steer AUV</span>
+            </span>
+            <span>· Drag Submersible on Viewport</span>
+          </div>
+        </footer>
+      )}
 
       {/* Modals */}
       <AcousticTheoryModal isOpen={isTheoryOpen} onClose={() => setIsTheoryOpen(false)} />

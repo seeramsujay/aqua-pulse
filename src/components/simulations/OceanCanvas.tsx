@@ -166,12 +166,12 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
     }
   }, [triggerPing, triggerPingRef]);
 
-  // Handle manual ping on space or prop change
+  // Handle manual ping on prop change
   useEffect(() => {
-    if (submersible.pingActive && rays.length === 0) {
+    if (submersible.pingActive && submersible.status === 'idle') {
       triggerPing();
     }
-  }, [submersible.pingActive, triggerPing, rays.length]);
+  }, [submersible.pingActive, submersible.status, triggerPing]);
 
   // Auto-ping loop
   useEffect(() => {

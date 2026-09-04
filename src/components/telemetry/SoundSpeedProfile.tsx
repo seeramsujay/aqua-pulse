@@ -101,7 +101,10 @@ export const SoundSpeedProfile: React.FC<SoundSpeedProfileProps> = ({ layers, au
 
       {/* SVG Chart */}
       <div className="relative flex-1 flex items-center justify-center px-2 pb-2">
-        <svg width={svgWidth} height={svgHeight} className="overflow-visible select-none">
+        <svg
+          viewBox={`0 0 ${svgWidth} ${svgHeight}`}
+          className="w-full h-full max-h-[460px] overflow-visible select-none"
+        >
           <defs>
             <linearGradient id="speedAreaGrad" x1="0" y1="0" x2="1" y2="0">
               <stop offset="0%" stopColor="rgba(67, 199, 217, 0.12)" />
