@@ -1,6 +1,12 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { Submersible, OceanLayer, AcousticRay, ChirpBand, EchoReturn, BathymetryPoint, SonarMode } from '../../types/sonar';
-import { getOceanPropertiesAtDepth, getSeafloorDepth, traceAcousticRay } from '../../physics/oceanAcoustics';
+import {
+  getOceanPropertiesAtDepth,
+  getSeafloorDepth,
+  traceAcousticRay,
+  calculateTransmissionLoss,
+  calculateCssProcessingGain,
+} from '../../physics/oceanAcoustics';
 
 interface OceanCanvasProps {
   submersible: Submersible;
@@ -16,7 +22,9 @@ interface OceanCanvasProps {
   triggerPingRef?: React.MutableRefObject<(() => void) | null>;
   /** Autonomous mission mode: world-scrolling offset in meters */
   worldOffsetX?: number;
-  /** Whether the autonomous mission is active (disables manual control) */
+  /** Autonomous mission mode: dynamic terrain elevation offset in meters (seafloor rises) */
+  terrainElevation?: number;
+  /** Whether the autonomous mission is active (straight cruise mode) */
   isMissionActive?: boolean;
   /** Collision warning distance (meters below AUV to seafloor ahead) */
   collisionWarning?: boolean;
@@ -46,6 +54,7 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
   turbidity = 12.0,
   triggerPingRef,
   worldOffsetX = 0,
+  terrainElevation = 0,
   isMissionActive = false,
   collisionWarning = false,
   collisionDistanceM = null,
@@ -53,6 +62,8 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [rays, setRays] = useState<AcousticRay[]>([]);
   const [isDraggingAuv, setIsDraggingAuv] = useState(false);
+  const [isHoveringAuv, setIsHoveringAuv] = useState(false);
+  const dragOffsetRef = useRef<{ x: number; depth: number }>({ x: 0, depth: 0 });
   const pingWaveRadiiRef = useRef<number[]>([]);
   const animationFrameRef = useRef<number | null>(null);
   const particlesRef = useRef<OceanParticle[]>([]);
@@ -85,62 +96,71 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
         vy: (Math.random() - 0.5) * 0.2 + (type === 'sediment' ? -0.1 : 0),
         size: type === 'bioluminescent' ? 1.8 + Math.random() * 1.5 : 1 + Math.random() * 1.5,
         baseAlpha: 0.15 + Math.random() * 0.35,
-        type
+        type,
       });
     }
     particlesRef.current = pts;
   }, []);
 
+  // Ray generation helper for given origin
+  const generateRaysAt = useCallback(
+    (startX: number, startDepth: number): AcousticRay[] => {
+      const numRays = mode === 'rc-css' ? 21 : 13;
+      const spread = submersible.beamSpreadDeg;
+      const centerAngle = submersible.pingAngleDeg;
+      const angleStep = spread / (numRays - 1);
+      const startAngle = centerAngle - spread / 2;
+      const elev = isMissionActive ? terrainElevation : 0;
+
+      const newRays: AcousticRay[] = [];
+
+      if (mode === 'rc-css') {
+        for (let i = 0; i < numRays; i++) {
+          const angle = startAngle + i * angleStep;
+          const centerFreq = (activeBand.fStart + activeBand.fEnd) / 2;
+          const ray = traceAcousticRay(
+            startX,
+            startDepth,
+            angle,
+            centerFreq,
+            activeBand,
+            layers,
+            terrainType,
+            'rc-css',
+            3200,
+            turbidity,
+            elev
+          );
+          newRays.push(ray);
+        }
+      } else {
+        const fixedFreq = 450;
+        for (let i = 0; i < numRays; i++) {
+          const angle = startAngle + i * angleStep;
+          const ray = traceAcousticRay(
+            startX,
+            startDepth,
+            angle,
+            fixedFreq,
+            null,
+            layers,
+            terrainType,
+            'traditional-cw',
+            3200,
+            turbidity,
+            elev
+          );
+          newRays.push(ray);
+        }
+      }
+      return newRays;
+    },
+    [mode, submersible.beamSpreadDeg, submersible.pingAngleDeg, isMissionActive, terrainElevation, activeBand, layers, terrainType, turbidity]
+  );
+
   // Trigger Acoustic Ping
   const triggerPing = useCallback(() => {
-    const numRays = mode === 'rc-css' ? 21 : 13;
-    const spread = submersible.beamSpreadDeg;
-    const centerAngle = submersible.pingAngleDeg;
-    const angleStep = spread / (numRays - 1);
-    const startAngle = centerAngle - spread / 2;
-
-    const newRays: AcousticRay[] = [];
-
-    if (mode === 'rc-css') {
-      // For RC-CSS, fire rays for the active stepped frequency band
-      for (let i = 0; i < numRays; i++) {
-        const angle = startAngle + i * angleStep;
-        const centerFreq = (activeBand.fStart + activeBand.fEnd) / 2;
-        const ray = traceAcousticRay(
-          submersible.x,
-          submersible.depth,
-          angle,
-          centerFreq,
-          activeBand,
-          layers,
-          terrainType,
-          'rc-css',
-          3200,
-          turbidity
-        );
-        newRays.push(ray);
-      }
-    } else {
-      // For Traditional CW Sonar, fire single fixed high frequency tone (450 kHz)
-      const fixedFreq = 450;
-      for (let i = 0; i < numRays; i++) {
-        const angle = startAngle + i * angleStep;
-        const ray = traceAcousticRay(
-          submersible.x,
-          submersible.depth,
-          angle,
-          fixedFreq,
-          null,
-          layers,
-          terrainType,
-          'traditional-cw',
-          3200,
-          turbidity
-        );
-        newRays.push(ray);
-      }
-    }
-
+    const newRays = generateRaysAt(submersible.x, submersible.depth);
     setRays(newRays);
     pingWaveRadiiRef.current.push(5);
 
@@ -160,7 +180,7 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
                 measuredDepth: r.echo.calculatedDepthM,
                 confidence: Math.max(10, Math.min(100, Math.round(r.echo.snrDb * 3.5))),
                 frequencyKHz: r.freqKHz,
-                timestamp: Date.now()
+                timestamp: Date.now(),
               });
             }
           }
@@ -175,8 +195,9 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
     setTimeout(() => {
       setSubmersible((prev: Submersible) => ({ ...prev, status: 'idle', pingActive: false }));
     }, 1400);
-  }, [submersible, mode, activeBand, layers, terrainType, onEchoDetected, onSoundingPoint, setSubmersible]);
+  }, [generateRaysAt, submersible.x, submersible.depth, onEchoDetected, onSoundingPoint, setSubmersible]);
 
+  // Hook triggerPingRef for external triggers (Space bar, Navbar button)
   useEffect(() => {
     if (triggerPingRef) {
       triggerPingRef.current = triggerPing;
@@ -190,6 +211,47 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
     }
   }, [submersible.pingActive, submersible.status, triggerPing]);
 
+  // Whenever the submarine moves: re-trace active rays so the ping beam moves along with it in real-time!
+  useEffect(() => {
+    if (rays.length > 0) {
+      const updatedRays = generateRaysAt(submersible.x, submersible.depth);
+      setRays(updatedRays);
+      const centerRay = updatedRays[Math.floor(updatedRays.length / 2)];
+      if (centerRay && centerRay.echo) {
+        onEchoDetected(centerRay.echo);
+      }
+    } else {
+      // Even before manual ping: calculate and emit live in-situ sounding values on submarine movement
+      const elev = isMissionActive ? terrainElevation : 0;
+      const wrappedX = ((submersible.x % WORLD_WIDTH_M) + WORLD_WIDTH_M) % WORLD_WIDTH_M;
+      const seafloorZ = Math.max(150, getSeafloorDepth(wrappedX, terrainType, WORLD_WIDTH_M) - elev);
+      const altitude = Math.max(0.5, seafloorZ - submersible.depth);
+      const c = getOceanPropertiesAtDepth(layers, submersible.depth).soundSpeed;
+      const travelTimeMs = (2 * altitude / c) * 1000;
+      const fCenter = (activeBand.fStart + activeBand.fEnd) / 2;
+      const tl = calculateTransmissionLoss(altitude * 2, fCenter, turbidity);
+      const gain = calculateCssProcessingGain((activeBand.fEnd - activeBand.fStart) * 1000, activeBand.durationMs / 1000);
+      const snr = Math.max(4, 210 - tl - 45 + gain);
+
+      onEchoDetected({
+        id: `live-sounding-${Date.now()}`,
+        bandId: activeBand.id,
+        freqKHz: fCenter,
+        launchAngleDeg: 90,
+        travelTimeMs,
+        calculatedDepthM: seafloorZ,
+        trueDepthM: seafloorZ,
+        snrDb: snr,
+        attenuationDb: tl,
+        color: activeBand.color,
+        timestamp: Date.now(),
+        compressionGainDb: gain,
+        success: snr > 3,
+        reason: 'Real-time Transducer Sounding',
+      });
+    }
+  }, [submersible.x, submersible.depth, generateRaysAt, onEchoDetected, isMissionActive, terrainElevation, terrainType, layers, activeBand, turbidity]);
+
   // Auto-ping loop
   useEffect(() => {
     if (!isAutoPinging) return;
@@ -198,6 +260,87 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
     }, 1800);
     return () => clearInterval(interval);
   }, [isAutoPinging, triggerPing]);
+
+  // Helper to convert PointerEvent into exact canvas, world, and CSS coordinates
+  const getPointerCoords = useCallback(
+    (e: React.PointerEvent<HTMLCanvasElement>) => {
+      const canvas = canvasRef.current;
+      if (!canvas) return null;
+      const rect = canvas.getBoundingClientRect();
+      const cssX = e.clientX - rect.left;
+      const cssY = e.clientY - rect.top;
+      const normX = Math.max(0, Math.min(1, cssX / rect.width));
+      const normY = Math.max(0, Math.min(1, cssY / rect.height));
+
+      const offsetX = isMissionActive ? worldOffsetX : 0;
+      const worldX = normX * WORLD_WIDTH_M + offsetX;
+      const depthM = normY * WORLD_DEPTH_M;
+
+      // AUV center position mapped to CSS pixels
+      const auvCanvasX = ((submersible.x - offsetX) / WORLD_WIDTH_M) * canvas.width;
+      const auvCanvasY = (submersible.depth / WORLD_DEPTH_M) * canvas.height;
+      const auvCssX = (auvCanvasX / canvas.width) * rect.width;
+      const auvCssY = (auvCanvasY / canvas.height) * rect.height;
+
+      const distCssPx = Math.hypot(cssX - auvCssX, cssY - auvCssY);
+
+      return {
+        cssX,
+        cssY,
+        normX,
+        normY,
+        worldX,
+        depthM,
+        auvCssX,
+        auvCssY,
+        distCssPx,
+      };
+    },
+    [isMissionActive, worldOffsetX, submersible.x, submersible.depth]
+  );
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (isMissionActive) return; // In autonomous mission, AUV goes straight
+    const data = getPointerCoords(e);
+    if (!data) return;
+
+    // Precision hit radius: 42 CSS pixels around submarine hull
+    if (data.distCssPx <= 42) {
+      setIsDraggingAuv(true);
+      dragOffsetRef.current = {
+        x: submersible.x - data.worldX,
+        depth: submersible.depth - data.depthM,
+      };
+      (e.currentTarget as HTMLCanvasElement).setPointerCapture(e.pointerId);
+    }
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (isMissionActive) return;
+    const data = getPointerCoords(e);
+    if (!data) return;
+
+    setIsHoveringAuv(data.distCssPx <= 42);
+
+    if (isDraggingAuv) {
+      const targetX = Math.max(60, Math.min(WORLD_WIDTH_M - 60, data.worldX + dragOffsetRef.current.x));
+      const targetDepth = Math.max(25, Math.min(WORLD_DEPTH_M - 120, data.depthM + dragOffsetRef.current.depth));
+      setSubmersible((prev: Submersible) => ({
+        ...prev,
+        x: targetX,
+        depth: targetDepth,
+      }));
+    }
+  };
+
+  const handlePointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (isDraggingAuv) {
+      setIsDraggingAuv(false);
+      try {
+        (e.currentTarget as HTMLCanvasElement).releasePointerCapture(e.pointerId);
+      } catch (_) {}
+    }
+  };
 
   // Main Canvas Render Loop
   useEffect(() => {
@@ -214,16 +357,10 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
       const h = canvas.height;
 
       // ── Coordinate transforms ──
-      // In mission mode: worldOffsetX shifts the terrain; AUV stays centered horizontally
       const offsetX = isMissionActive ? worldOffsetX : 0;
-
       const scaleX = (x: number) => ((x - offsetX) / WORLD_WIDTH_M) * w;
       const scaleY = (z: number) => (z / WORLD_DEPTH_M) * h;
       const unscaleX = (px: number) => (px / w) * WORLD_WIDTH_M + offsetX;
-
-      // AUV always draws at its submersible.x position
-      // In mission mode, submersible.x is set to offsetX + WORLD_WIDTH_M/2 by App.tsx
-      // so scaleX(submersible.x) → center of canvas
 
       // Clear Canvas
       ctx.fillStyle = '#071018';
@@ -264,36 +401,24 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
         ctx.stroke();
         ctx.setLineDash([]);
 
-        // Layer Name Annotation
+        ctx.fillStyle = 'rgba(126, 147, 164, 0.65)';
         ctx.font = '10px JetBrains Mono, monospace';
-        ctx.fillStyle = 'rgba(148, 163, 184, 0.65)';
-        ctx.fillText(`${layer.name.toUpperCase()} [${layer.depthStart}m - ${layer.depthEnd}m]`, 16, yStart + 18);
-
-        // Sound Speed at Layer Boundary
-        const { soundSpeed } = getOceanPropertiesAtDepth(layers, layer.depthStart);
-        ctx.fillStyle = 'rgba(56, 189, 248, 0.5)';
-        ctx.fillText(`c(z) ≈ ${soundSpeed.toFixed(1)} m/s`, w - 145, yStart + 18);
+        ctx.fillText(`${layer.name} (${layer.depthStart}-${layer.depthEnd}m)`, 10, yStart + 16);
       });
 
-      // 2. Animated Thermocline Internal Waves
-      layers.forEach((layer, idx) => {
-        if (idx > 0 && idx < layers.length) {
-          const yBound = scaleY(layer.depthStart);
-          ctx.strokeStyle = 'rgba(56, 189, 248, 0.2)';
-          ctx.lineWidth = 1.2;
-          ctx.beginPath();
-          for (let x = 0; x <= w; x += 10) {
-            // In mission mode, shift the wave pattern with world offset
-            const worldPhase = isMissionActive ? (offsetX * 0.01) : 0;
-            const waveY = yBound + Math.sin(x * 0.015 + time * 1.5 + idx + worldPhase) * 3.5;
-            if (x === 0) ctx.moveTo(x, waveY);
-            else ctx.lineTo(x, waveY);
-          }
-          ctx.stroke();
-        }
-      });
+      // 2. Animated Ocean Surface Waves
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      for (let x = 0; x <= w; x += 15) {
+        const waveY = 3 * Math.sin(x * 0.015 + time * 2) + 2 * Math.cos(x * 0.03 - time);
+        ctx.lineTo(x, Math.max(1, waveY + 4));
+      }
+      ctx.lineTo(w, 0);
+      ctx.closePath();
+      ctx.fillStyle = 'rgba(56, 189, 248, 0.25)';
+      ctx.fill();
 
-      // 3. Ambient Ocean Particles (Living water column)
+      // 3. Render Floating Ocean Particles
       if (particlesRef.current.length > 0) {
         particlesRef.current.forEach((p) => {
           p.x += p.vx;
@@ -304,11 +429,9 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
           if (p.y < 0) p.y = WORLD_DEPTH_M;
           if (p.y > WORLD_DEPTH_M) p.y = 0;
 
-          // In mission mode, shift particles with the world
           const particleWorldX = isMissionActive ? p.x + offsetX : p.x;
           const px = scaleX(particleWorldX);
 
-          // Only draw if on-screen
           if (px < -10 || px > w + 10) return;
 
           const py = scaleY(p.y);
@@ -350,38 +473,128 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
         ctx.fillText(`${d}m`, 6, y - 4);
       }
 
-      // 5. Render Realistic Seafloor Terrain
-      // In mission mode, query terrain using the world-offset coordinate
+      // 5. Render Realistic Seafloor Terrain with High-Tech Geological Textures
       const seafloorPath = new Path2D();
       seafloorPath.moveTo(0, h);
-      const stepPx = 8;
+      const stepPx = 6;
+      const terrainPoints: { px: number; py: number; worldX: number; depthM: number }[] = [];
+
       for (let px = 0; px <= w; px += stepPx) {
         const worldX = unscaleX(px);
-        // Wrap worldX into valid terrain range for getSeafloorDepth
         const wrappedX = ((worldX % WORLD_WIDTH_M) + WORLD_WIDTH_M) % WORLD_WIDTH_M;
-        const depthM = getSeafloorDepth(wrappedX, terrainType, WORLD_WIDTH_M);
+        const rawDepthM = getSeafloorDepth(wrappedX, terrainType, WORLD_WIDTH_M);
+        const elev = isMissionActive ? terrainElevation : 0;
+        const depthM = Math.max(160, rawDepthM - elev);
         const py = scaleY(depthM);
-        if (px === 0) seafloorPath.lineTo(px, py);
-        else seafloorPath.lineTo(px, py);
+        terrainPoints.push({ px, py, worldX, depthM });
+        seafloorPath.lineTo(px, py);
       }
       seafloorPath.lineTo(w, h);
       seafloorPath.closePath();
 
-      // Seafloor fill gradient
-      const seafloorGrad = ctx.createLinearGradient(0, scaleY(600), 0, h);
-      seafloorGrad.addColorStop(0, '#111827');
-      seafloorGrad.addColorStop(0.3, '#0b1120');
-      seafloorGrad.addColorStop(1, '#020617');
+      // Clip inside seafloor for internal strata and geological textures
+      ctx.save();
+      ctx.clip(seafloorPath);
+
+      // A. Deep Marine Substrate Gradient Base
+      const seafloorGrad = ctx.createLinearGradient(0, scaleY(150), 0, h);
+      seafloorGrad.addColorStop(0, '#0c1b26');
+      seafloorGrad.addColorStop(0.25, '#08141d');
+      seafloorGrad.addColorStop(0.6, '#050d14');
+      seafloorGrad.addColorStop(1, '#020508');
       ctx.fillStyle = seafloorGrad;
       ctx.fill(seafloorPath);
 
-      // Seafloor luminous border
-      ctx.strokeStyle = '#38bdf8';
-      ctx.lineWidth = 2;
-      ctx.shadowColor = '#0284c7';
-      ctx.shadowBlur = 8;
+      // B. Sub-bottom Acoustic Strata Layers (Geological Sediment Horizons)
+      const strataOffsets = [28, 68, 125, 210, 320, 480];
+      const strataStyles = [
+        { color: 'rgba(67, 199, 217, 0.24)', dash: [8, 4], width: 1.5 },
+        { color: 'rgba(99, 199, 154, 0.20)', dash: [14, 6], width: 1.2 },
+        { color: 'rgba(217, 164, 65, 0.18)', dash: [5, 5], width: 1.0 },
+        { color: 'rgba(155, 142, 196, 0.15)', dash: [18, 8], width: 1.2 },
+        { color: 'rgba(67, 199, 217, 0.12)', dash: [10, 6], width: 1.0 },
+        { color: 'rgba(255, 255, 255, 0.08)', dash: [4, 8], width: 0.8 },
+      ];
+
+      strataOffsets.forEach((offsetM, sIdx) => {
+        const style = strataStyles[sIdx % strataStyles.length];
+        ctx.beginPath();
+        ctx.strokeStyle = style.color;
+        ctx.setLineDash(style.dash);
+        ctx.lineWidth = style.width;
+
+        for (let i = 0; i < terrainPoints.length; i++) {
+          const pt = terrainPoints[i];
+          const fold = Math.sin((pt.worldX + sIdx * 180) * 0.007) * (10 + sIdx * 4);
+          const strataY = scaleY(pt.depthM + offsetM) + fold;
+          if (i === 0) ctx.moveTo(pt.px, strataY);
+          else ctx.lineTo(pt.px, strataY);
+        }
+        ctx.stroke();
+      });
+      ctx.setLineDash([]);
+
+      // C. Geological 45° Acoustic Penetration Cross-Hatch Grain
+      ctx.strokeStyle = 'rgba(67, 199, 217, 0.03)';
+      ctx.lineWidth = 1;
+      const hatchSpacing = 24;
+      for (let x = -h; x < w + h; x += hatchSpacing) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x + h, h);
+        ctx.stroke();
+      }
+
+      // D. Vertical Core Sounding Reference Grid Lines (every 75px)
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.035)';
+      ctx.lineWidth = 1;
+      for (let px = 0; px <= w; px += 75) {
+        ctx.beginPath();
+        ctx.moveTo(px, 0);
+        ctx.lineTo(px, h);
+        ctx.stroke();
+      }
+
+      // E. Sediment Speckles & Micro-Reflectors
+      for (let i = 0; i < terrainPoints.length; i += 3) {
+        const pt = terrainPoints[i];
+        for (let k = 1; k <= 4; k++) {
+          const speckleY = pt.py + k * 35 + ((pt.worldX * (k + 1) * 19) % 25);
+          if (speckleY < h) {
+            ctx.fillStyle = k % 2 === 0 ? 'rgba(67, 199, 217, 0.25)' : 'rgba(99, 199, 154, 0.2)';
+            ctx.fillRect(pt.px, speckleY, 1.5, 1.5);
+          }
+        }
+      }
+
+      ctx.restore(); // Exit clipped seafloor
+
+      // F. Acoustic Surface Backscatter Relief Ticks
+      ctx.strokeStyle = 'rgba(67, 199, 217, 0.4)';
+      ctx.lineWidth = 1;
+      for (let i = 0; i < terrainPoints.length - 1; i += 2) {
+        const pt = terrainPoints[i];
+        const nextPt = terrainPoints[i + 1];
+        const slope = (nextPt.py - pt.py) / (nextPt.px - pt.px);
+        const reliefLength = Math.max(2, Math.min(8, 4 - slope * 3));
+        ctx.beginPath();
+        ctx.moveTo(pt.px, pt.py);
+        ctx.lineTo(pt.px, pt.py + reliefLength);
+        ctx.stroke();
+      }
+
+      // G. Glowing Multi-Layer Seafloor Crest Contour
+      ctx.save();
+      ctx.strokeStyle = '#43C7D9';
+      ctx.lineWidth = 2.5;
+      ctx.shadowColor = '#00f0ff';
+      ctx.shadowBlur = 12;
       ctx.stroke(seafloorPath);
-      ctx.shadowBlur = 0;
+      ctx.restore();
+
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+      ctx.lineWidth = 1;
+      ctx.stroke(seafloorPath);
 
       // 6. Draw Acoustic Rays & Refraction Paths
       rays.forEach((ray) => {
@@ -458,7 +671,7 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
           return r < 220;
         });
 
-      // 8. Draw AUV / Unmanned Submersible Vehicle
+      // 8. Draw AUV / Submersible Vehicle
       const auvCanvasX = scaleX(submersible.x);
       const auvCanvasY = scaleY(submersible.depth);
 
@@ -469,7 +682,7 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
       const beamSpreadRad = (submersible.beamSpreadDeg * Math.PI) / 180;
       const pingAngleRad = (submersible.pingAngleDeg * Math.PI) / 180;
       ctx.fillStyle = activeBand.color;
-      ctx.globalAlpha = 0.07;
+      ctx.globalAlpha = 0.08;
       ctx.beginPath();
       ctx.moveTo(0, 0);
       ctx.arc(0, 0, 170, pingAngleRad - beamSpreadRad / 2, pingAngleRad + beamSpreadRad / 2);
@@ -479,11 +692,58 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
 
       // Submersible Ambient Glow Halo
       ctx.shadowColor = '#00f0ff';
-      ctx.shadowBlur = isMissionActive ? 14 : (isDraggingAuv ? 20 : 10);
+      ctx.shadowBlur = isMissionActive ? 14 : isDraggingAuv ? 22 : isHoveringAuv ? 16 : 10;
+
+      // Precision Reticle & Lock HUD when hovering or dragging AUV in manual mode
+      if (!isMissionActive && (isHoveringAuv || isDraggingAuv)) {
+        ctx.save();
+        ctx.strokeStyle = isDraggingAuv ? '#43C7D9' : '#63C79A';
+        ctx.lineWidth = 1.6;
+        ctx.shadowColor = isDraggingAuv ? '#00f0ff' : '#63C79A';
+        ctx.shadowBlur = 10;
+
+        const reticleSize = 30;
+        const cornerLen = 8;
+        // Top-left corner
+        ctx.beginPath();
+        ctx.moveTo(-reticleSize, -reticleSize + cornerLen);
+        ctx.lineTo(-reticleSize, -reticleSize);
+        ctx.lineTo(-reticleSize + cornerLen, -reticleSize);
+        ctx.stroke();
+
+        // Top-right corner
+        ctx.beginPath();
+        ctx.moveTo(reticleSize - cornerLen, -reticleSize);
+        ctx.lineTo(reticleSize, -reticleSize);
+        ctx.lineTo(reticleSize, -reticleSize + cornerLen);
+        ctx.stroke();
+
+        // Bottom-left corner
+        ctx.beginPath();
+        ctx.moveTo(-reticleSize, reticleSize - cornerLen);
+        ctx.lineTo(-reticleSize, reticleSize);
+        ctx.lineTo(-reticleSize + cornerLen, reticleSize);
+        ctx.stroke();
+
+        // Bottom-right corner
+        ctx.beginPath();
+        ctx.moveTo(reticleSize - cornerLen, reticleSize);
+        ctx.lineTo(reticleSize, reticleSize);
+        ctx.lineTo(reticleSize, reticleSize - cornerLen);
+        ctx.stroke();
+
+        // Center dot
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(0, 0, 2, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.restore();
+      }
 
       // Main Hull Ellipse
       ctx.fillStyle = '#0f172a';
-      ctx.strokeStyle = '#38bdf8';
+      ctx.strokeStyle = isDraggingAuv ? '#43C7D9' : isHoveringAuv ? '#63C79A' : '#38bdf8';
       ctx.lineWidth = 2.2;
       ctx.beginPath();
       ctx.ellipse(0, 0, 24, 13, 0, 0, Math.PI * 2);
@@ -544,8 +804,12 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
       // 9. Draw AUV Telemetry Tag & Pressure Calculation
       const pressureBar = (1 + 0.1 * (submersible.depth / 10)).toFixed(1);
       ctx.font = 'bold 11px JetBrains Mono, monospace';
-      ctx.fillStyle = '#38bdf8';
-      ctx.fillText(`AUV-AQUAPULSE [${submersible.depth.toFixed(0)}m]`, auvCanvasX - 60, auvCanvasY - 32);
+      ctx.fillStyle = isDraggingAuv ? '#43C7D9' : '#38bdf8';
+      ctx.fillText(
+        `AUV-AQUAPULSE [${submersible.depth.toFixed(0)}m]${isDraggingAuv ? ' ◈ DRAG LOCK' : ''}`,
+        auvCanvasX - 60,
+        auvCanvasY - 32
+      );
 
       const auvProps = getOceanPropertiesAtDepth(layers, submersible.depth);
       ctx.font = '10px JetBrains Mono, monospace';
@@ -556,12 +820,15 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
         auvCanvasY - 18
       );
 
-      // 10. Mission Mode HUD overlay — Mission Phase & Scroll Progress
+      // 10. Mission Mode HUD overlay
       if (isMissionActive) {
-        // World offset indicator (top-left)
         ctx.font = 'bold 10px JetBrains Mono, monospace';
         ctx.fillStyle = 'rgba(67, 199, 217, 0.7)';
-        ctx.fillText(`▸ AUTONOMOUS MISSION · RANGE: ${Math.round(worldOffsetX)}m`, 16, h - 14);
+        ctx.fillText(
+          `▸ AUTONOMOUS MISSION · STRAIGHT CRUISE (120m) · RANGE: ${Math.round(worldOffsetX)}m`,
+          16,
+          h - 14
+        );
       }
 
       // Loop animation
@@ -575,44 +842,19 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
         cancelAnimationFrame(animationFrameRef.current);
       }
     };
-  }, [layers, terrainType, mode, activeBand, rays, submersible, isDraggingAuv, worldOffsetX, isMissionActive]);
-
-  // Mouse drag handler for AUV repositioning (disabled in mission mode)
-  const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (isMissionActive) return; // No manual control during autonomous mission
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    const clickY = e.clientY - rect.top;
-
-    const auvCanvasX = (submersible.x / WORLD_WIDTH_M) * canvas.width;
-    const auvCanvasY = (submersible.depth / WORLD_DEPTH_M) * canvas.height;
-
-    const dist = Math.hypot(clickX - auvCanvasX, clickY - auvCanvasY);
-    if (dist < 45) {
-      setIsDraggingAuv(true);
-    }
-  };
-
-  const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (isMissionActive) return; // No manual control during autonomous mission
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
-    const mouseX = e.clientX - rect.left;
-    const mouseY = e.clientY - rect.top;
-
-    if (isDraggingAuv) {
-      const newWorldX = Math.max(100, Math.min(WORLD_WIDTH_M - 100, (mouseX / canvas.width) * WORLD_WIDTH_M));
-      const newDepth = Math.max(30, Math.min(WORLD_DEPTH_M - 200, (mouseY / canvas.height) * WORLD_DEPTH_M));
-      setSubmersible((prev: Submersible) => ({ ...prev, x: newWorldX, depth: newDepth }));
-    }
-  };
-
-  const handleMouseUp = () => {
-    setIsDraggingAuv(false);
-  };
+  }, [
+    layers,
+    terrainType,
+    mode,
+    activeBand,
+    rays,
+    submersible,
+    isDraggingAuv,
+    isHoveringAuv,
+    worldOffsetX,
+    terrainElevation,
+    isMissionActive,
+  ]);
 
   const currentSoundSpeed = getOceanPropertiesAtDepth(layers, submersible.depth).soundSpeed;
 
@@ -670,21 +912,29 @@ export const OceanCanvas: React.FC<OceanCanvasProps> = ({
         </div>
       )}
 
-      {/* Main Canvas Viewport */}
+      {/* Main Canvas Viewport with Precision Pointer Capture */}
       <canvas
         ref={canvasRef}
         width={1000}
         height={650}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseUp}
-        className={`w-full h-full select-none ${isMissionActive ? 'cursor-default' : 'cursor-crosshair'}`}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+        className={`w-full h-full select-none touch-none ${
+          isMissionActive
+            ? 'cursor-default'
+            : isDraggingAuv
+            ? 'cursor-grabbing'
+            : isHoveringAuv
+            ? 'cursor-grab'
+            : 'cursor-crosshair'
+        }`}
       />
 
       {/* Bottom Floating Legend */}
       <div
-        className="absolute bottom-3 left-4 right-4 z-10 flex items-center justify-center text-[10px] font-mono px-3 py-1.5 rounded"
+        className="absolute bottom-3 left-4 right-4 z-10 flex items-center justify-center text-[10px] font-mono px-3 py-1.5 rounded pointer-events-none"
         style={{
           background: 'rgba(11, 23, 32, 0.85)',
           border: '1px solid #20333D',

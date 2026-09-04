@@ -119,6 +119,7 @@ export function App() {
   const missionRafRef = useRef<number | null>(null);
   const [isMissionRunning, setIsMissionRunning] = useState<boolean>(false);
   const [missionWorldOffsetX, setMissionWorldOffsetX] = useState<number>(0);
+  const [missionTerrainElevation, setMissionTerrainElevation] = useState<number>(0);
   const [missionCollisionWarning, setMissionCollisionWarning] = useState<boolean>(false);
   const [missionCollisionDistanceM, setMissionCollisionDistanceM] = useState<number | null>(null);
   const [missionPhaseLabel, setMissionPhaseLabel] = useState<string>('');
@@ -262,8 +263,9 @@ export function App() {
         depth: state.currentDepth,
       }));
 
-      // Update world offset for scrolling
+      // Update world offset and terrain elevation for scrolling
       setMissionWorldOffsetX(state.worldOffsetX);
+      setMissionTerrainElevation(state.terrainElevation);
 
       // Update collision state
       setMissionCollisionWarning(state.collisionWarning);
@@ -299,6 +301,7 @@ export function App() {
     stopEvents.forEach((evt) => addMissionEvent(evt));
     setIsMissionRunning(false);
     setIsAutoPinging(false);
+    setMissionTerrainElevation(0);
     if (missionRafRef.current) {
       cancelAnimationFrame(missionRafRef.current);
       missionRafRef.current = null;
@@ -583,7 +586,7 @@ export function App() {
                       )}
                     </div>
                     <div className="flex items-center justify-between gap-1.5">
-                      {['Shallow', 'Thermocline', 'Deep'].map((phase, idx) => {
+                      {['Deep Basin', 'Slope Ascent', 'Ridge Crest'].map((phase, idx) => {
                         const phaseColors = ['#9B8EC4', '#63C79A', '#D9A441'];
                         const channelIndices = [2, 1, 0];
                         const currentPhaseIdx = [2, 1, 0].indexOf(bands[activeBandIndex] ? activeBandIndex : 0);
@@ -717,6 +720,7 @@ export function App() {
                   turbidity={turbidity}
                   triggerPingRef={triggerPingRef}
                   worldOffsetX={missionWorldOffsetX}
+                  terrainElevation={missionTerrainElevation}
                   isMissionActive={isMissionRunning}
                   collisionWarning={missionCollisionWarning}
                   collisionDistanceM={missionCollisionDistanceM}
@@ -966,6 +970,13 @@ export function App() {
                       onEchoDetected={handleEchoDetected}
                       onSoundingPoint={handleSoundingPoint}
                       isAutoPinging={isAutoPinging}
+                      turbidity={turbidity}
+                      triggerPingRef={triggerPingRef}
+                      worldOffsetX={missionWorldOffsetX}
+                      terrainElevation={missionTerrainElevation}
+                      isMissionActive={isMissionRunning}
+                      collisionWarning={missionCollisionWarning}
+                      collisionDistanceM={missionCollisionDistanceM}
                     />
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>

@@ -22,8 +22,8 @@ export interface MissionPhase {
   label: string;
   /** Target channel index (0 = CH0/Deep, 1 = CH1/Mid, 2 = CH2/High-res) */
   channelIndex: number;
-  /** Depth range the AUV operates in [min, max] meters */
-  depthRange: [number, number];
+  /** Target terrain elevation (meters the seabed rises upward toward surface) */
+  targetElevation: number;
   /** Environmental parameters for this zone */
   environment: {
     turbidity: number;   // NTU
@@ -39,30 +39,30 @@ export interface MissionPhase {
 export const MISSION_PHASES: MissionPhase[] = [
   {
     id: 'SHALLOW_CLEAR',
-    label: 'Shallow / Clear Water Survey',
+    label: 'Deep Basin / Clear Survey',
     channelIndex: 2, // CH2: 400–480 kHz
-    depthRange: [80, 180],
+    targetElevation: 0, // Seafloor at baseline deep depth (~1200m)
     environment: { turbidity: 5, temperature: 22.0, salinity: 35.2 },
     durationTicks: 600,  // ~10 seconds at 60fps
-    description: 'Clear shallow-water survey. High-frequency CH2 (400–480 kHz) active for centimeter-resolution bathymetry.',
+    description: 'Cruising straight over deep abyssal basin. High-frequency CH2 (400–480 kHz) active for high-resolution bathymetric soundings.',
   },
   {
     id: 'MID_THERMOCLINE',
-    label: 'Thermocline Descent',
+    label: 'Ascending Continental Slope',
     channelIndex: 1, // CH1: 200–250 kHz
-    depthRange: [280, 550],
+    targetElevation: 450, // Seafloor rises up towards ~750m
     environment: { turbidity: 18, temperature: 12.0, salinity: 34.8 },
     durationTicks: 720,  // ~12 seconds
-    description: 'Descending through thermocline. CH1 (200–250 kHz) activated for mid-water profiling across thermal velocity boundaries.',
+    description: 'Seafloor terrain ascending through thermocline boundary. CH1 (200–250 kHz) active for mid-water velocity profiling.',
   },
   {
     id: 'DEEP_TURBID',
-    label: 'Deep Turbid Strata Penetration',
+    label: 'High Seamount & Ridge Crest',
     channelIndex: 0, // CH0: 100–140 kHz
-    depthRange: [700, 1000],
+    targetElevation: 820, // Seafloor rises high up to ~350m beneath AUV!
     environment: { turbidity: 45, temperature: 5.0, salinity: 34.7 },
     durationTicks: 840,  // ~14 seconds
-    description: 'Deep turbid zone. CH0 (100–140 kHz) maximum penetration mode for sub-bottom profiling through suspended sediment.',
+    description: 'High underwater ridge crests rising close beneath AUV. Low-frequency CH0 (100–140 kHz) penetrating turbid sediment.',
   },
 ];
 
@@ -79,9 +79,11 @@ export interface MissionState {
   globalTick: number;
   /** World X offset (scrolls terrain; AUV stays centered) */
   worldOffsetX: number;
-  /** Current AUV depth (interpolated) */
+  /** Current AUV depth (stays straight at constant depth) */
   currentDepth: number;
-  /** Current AUV heading angle (for visual rotation, in degrees) */
+  /** Current terrain elevation offset in meters (raises the seafloor height) */
+  terrainElevation: number;
+  /** Current AUV heading angle (0 = straight ahead) */
   heading: number;
   /** Forward-looking collision warning (distance to seafloor ahead in meters) */
   collisionDistanceM: number | null;
@@ -98,7 +100,7 @@ export interface MissionState {
 // ─── Collision Prediction ───────────────────────────────────────────
 
 const COLLISION_LOOK_AHEAD_M = 200;   // meters ahead to check
-const COLLISION_WARN_THRESHOLD_M = 80; // warn if seafloor is within this vertical distance
+const COLLISION_WARN_THRESHOLD_M = 160; // warn if seafloor rises close to AUV
 
 // ─── Simulator Class ────────────────────────────────────────────────
 
@@ -113,10 +115,10 @@ export class MissionSimulator {
   private eventQueue: MissionEvent[] = [];
   private getSeafloorDepthFn: ((x: number, terrainType: string, widthM?: number) => number) | null = null;
   private terrainType: string = 'continental-slope';
-  // Track transition zone for smooth depth interpolation
+  // Track transition zone for smooth terrain elevation interpolation
   private transitionTick: number = 0;
-  private transitionFrom: number = 0;
-  private transitionTo: number = 0;
+  private transitionFromElev: number = 0;
+  private transitionToElev: number = 0;
   private isTransitioning: boolean = false;
 
   constructor() {
@@ -131,8 +133,9 @@ export class MissionSimulator {
       phaseTick: 0,
       globalTick: 0,
       worldOffsetX: 0,
-      currentDepth: phase.depthRange[0],
-      heading: 0,
+      currentDepth: 120, // Submarine cruises straight at constant 120m depth
+      terrainElevation: 0,
+      heading: 0, // Perfectly level straight trajectory
       collisionDistanceM: null,
       collisionWarning: false,
       missionComplete: false,
@@ -190,27 +193,23 @@ export class MissionSimulator {
     this.state.globalTick += 1;
     this.state.phaseTick += 1;
 
-    // ── Compute AUV depth trajectory ──
+    // ── Compute Terrain Elevation Trajectory (Seafloor rises upward beneath AUV) ──
     const phase = MISSION_PHASES[this.state.phaseIndex];
-    const [depthMin, depthMax] = phase.depthRange;
-    const phaseProgress = Math.min(1, this.state.phaseTick / phase.durationTicks);
 
     if (this.isTransitioning) {
-      // Smooth depth transition between phases (ease-in-out over 120 ticks)
+      // Smooth terrain elevation transition between phases (ease-in-out over 120 ticks)
       this.transitionTick += 1;
       const t = Math.min(1, this.transitionTick / 120);
       const ease = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
-      this.state.currentDepth = this.transitionFrom + (this.transitionTo - this.transitionFrom) * ease;
+      this.state.terrainElevation = this.transitionFromElev + (this.transitionToElev - this.transitionFromElev) * ease;
       if (t >= 1) this.isTransitioning = false;
     } else {
-      // Within-phase gentle undulation (sinusoidal depth variation for realism)
-      const undulation = Math.sin(phaseProgress * Math.PI * 4) * (depthMax - depthMin) * 0.15;
-      const baseDepth = depthMin + (depthMax - depthMin) * 0.3 + undulation;
-      this.state.currentDepth = Math.max(depthMin, Math.min(depthMax, baseDepth));
+      this.state.terrainElevation = phase.targetElevation;
     }
 
-    // ── Heading oscillation (subtle AUV pitch variation) ──
-    this.state.heading = Math.sin(this.state.globalTick * 0.02) * 3;
+    // Submarine stays straight at constant cruising depth
+    this.state.currentDepth = 120;
+    this.state.heading = 0;
 
     // ── Collision prediction ──
     this.updateCollisionPrediction();
@@ -230,11 +229,11 @@ export class MissionSimulator {
         });
       } else {
         const nextPhase = MISSION_PHASES[nextIndex];
-        // Begin depth transition
+        // Begin terrain elevation transition
         this.isTransitioning = true;
         this.transitionTick = 0;
-        this.transitionFrom = this.state.currentDepth;
-        this.transitionTo = nextPhase.depthRange[0] + (nextPhase.depthRange[1] - nextPhase.depthRange[0]) * 0.3;
+        this.transitionFromElev = this.state.terrainElevation;
+        this.transitionToElev = nextPhase.targetElevation;
 
         this.state.phaseIndex = nextIndex;
         this.state.phaseTick = 0;
@@ -278,7 +277,8 @@ export class MissionSimulator {
     const lookAheadWorldX = this.state.worldOffsetX + COLLISION_LOOK_AHEAD_M;
     // Wrap within terrain width for getSeafloorDepth (uses 2000m world)
     const queryX = lookAheadWorldX % 2000;
-    const seafloorAhead = this.getSeafloorDepthFn(queryX, this.terrainType, 2000);
+    const rawSeafloorAhead = this.getSeafloorDepthFn(queryX, this.terrainType, 2000);
+    const seafloorAhead = Math.max(150, rawSeafloorAhead - this.state.terrainElevation);
     const verticalGap = seafloorAhead - this.state.currentDepth;
 
     this.state.collisionDistanceM = Math.max(0, verticalGap);
