@@ -45,6 +45,12 @@ firmware/src/*.o
 
 # Local Documentation
 walkthru.md
+
+# SPICE Simulation Temporary Outputs
+ac_out.txt
+tran_out.txt
+*.raw
+
 scripts/
 *.blend
 *.blend1

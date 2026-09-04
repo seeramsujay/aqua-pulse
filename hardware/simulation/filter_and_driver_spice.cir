@@ -62,6 +62,14 @@ R_LOAD 16 0 50
   print @q_top[ic] @q_bot[ic]
 .endc
 
+.CONTROL
+ac dec 50 10k 10meg
+wrdata ac_out.txt vdb(16) vp(16)
+tran 10n 200u 180u
+wrdata tran_out.txt v(16) v(1)
+quit
+.ENDC
+
 .END
 
 * EOF: hardware/simulation/filter_and_driver_spice.cir
