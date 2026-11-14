@@ -4,9 +4,10 @@ Emulates continuous real-time serial telemetry packets as if streaming from STM3
 """
 
 import math
-import time
 import random
-from typing import Dict, Any, Generator
+import time
+from typing import Any
+
 
 class SubseaHardwareSimulator:
     def __init__(self):
@@ -17,7 +18,7 @@ class SubseaHardwareSimulator:
         self.battery_v = 12.6
         self.auto_ping = True
 
-    def step(self) -> Dict[str, Any]:
+    def step(self) -> dict[str, Any]:
         self.seq += 1
         self.auv_x += self.speed_mps * 0.2
         if self.auv_x > 2000.0:
@@ -27,17 +28,20 @@ class SubseaHardwareSimulator:
         # Turbidity plume around x=800..1200
         dist_to_plume = abs(self.auv_x - 1000.0)
         if dist_to_plume < 300:
-            turbidity = 250.0 * math.exp(-0.5 * (dist_to_plume / 100.0)**2) + random.uniform(5, 15)
+            turbidity = 250.0 * math.exp(
+                -0.5 * (dist_to_plume / 100.0) ** 2
+            ) + random.uniform(5, 15)
         else:
             turbidity = random.uniform(5.0, 18.0)
 
         # Depth undulating trajectory
-        self.auv_depth = 120.0 + 80.0 * math.sin(self.auv_x * 0.005) + random.uniform(-1, 1)
+        self.auv_depth = (
+            120.0 + 80.0 * math.sin(self.auv_x * 0.005) + random.uniform(-1, 1)
+        )
 
         # Temperature stratification (warmer surface, cold deep)
         temp = 22.0 - 0.015 * self.auv_depth + random.uniform(-0.2, 0.2)
-        if temp < 2.0:
-            temp = 2.0
+        temp = max(temp, 2.0)
 
         salinity = 35.0 + 0.002 * self.auv_depth + (0.5 if turbidity > 50 else 0)
 
@@ -46,17 +50,17 @@ class SubseaHardwareSimulator:
 
         # Cognitive Channel Selection (TinyML Logic)
         if turbidity > 120.0 or self.auv_depth > 500.0:
-            ch = 0 # 100 - 140 kHz
+            ch = 0  # 100 - 140 kHz
             f0, f1, tp = 100000.0, 140000.0, 1.2
-            win = 2 # Blackman-Harris
+            win = 2  # Blackman-Harris
         elif self.auv_depth > 150.0 or temp < 14.0:
-            ch = 1 # 200 - 250 kHz
+            ch = 1  # 200 - 250 kHz
             f0, f1, tp = 200000.0, 250000.0, 0.8
-            win = 1 # Hann
+            win = 1  # Hann
         else:
-            ch = 2 # 400 - 480 kHz
+            ch = 2  # 400 - 480 kHz
             f0, f1, tp = 400000.0, 480000.0, 0.5
-            win = 1 # Hann
+            win = 1  # Hann
 
         amp = 0.85 if self.battery_v > 11.2 else 0.65
         power_mw = 1800.0 * amp * (0.7 if ch == 0 else (0.85 if ch == 1 else 1.0))
@@ -64,10 +68,21 @@ class SubseaHardwareSimulator:
 
         # Mackenzie Sound Speed
         T, S, z = temp, salinity, self.auv_depth
-        c = 1449.2 + 4.6 * T - 0.055 * T**2 + 0.00029 * T**3 + (1.34 - 0.010 * T) * (S - 35.0) + 0.0163 * z
+        c = (
+            1449.2
+            + 4.6 * T
+            - 0.055 * T**2
+            + 0.00029 * T**3
+            + (1.34 - 0.010 * T) * (S - 35.0)
+            + 0.0163 * z
+        )
 
         # Seabed profile simulation
-        seabed_depth = 400.0 + 200.0 * math.sin(self.auv_x * 0.003) + 50.0 * math.cos(self.auv_x * 0.01)
+        seabed_depth = (
+            400.0
+            + 200.0 * math.sin(self.auv_x * 0.003)
+            + 50.0 * math.cos(self.auv_x * 0.01)
+        )
         altitude = max(10.0, seabed_depth - self.auv_depth)
         travel_time_ms = (2.0 * altitude / c) * 1000.0
         snr = 24.0 - (turbidity * 0.03) - (altitude * 0.02) + (18.4 if ch < 2 else 15.0)
@@ -106,8 +121,9 @@ class SubseaHardwareSimulator:
             "est_bottom": round(seabed_depth, 1),
             "altitude_m": round(altitude, 1),
             "travel_time_ms": round(travel_time_ms, 2),
-            "noise_floor_db": noise_floor_db
+            "noise_floor_db": noise_floor_db,
         }
+
 
 simulator = SubseaHardwareSimulator()
 

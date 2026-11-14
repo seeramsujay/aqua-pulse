@@ -1,6 +1,7 @@
-import numpy as np
-import matplotlib.pyplot as plt
 import os
+
+import matplotlib.pyplot as plt
+import numpy as np
 
 # Create docs/spice_plots directory if it doesn't exist
 output_dir = "../../docs/spice_plots"
@@ -14,33 +15,39 @@ try:
     freq = data_ac[:, 0]
     mag = data_ac[:, 1]
     phase_rad = data_ac[:, 2]
-    
+
     # Fix: Convert radians to degrees for correct right y-axis plotting
     phase_deg = phase_rad * (180.0 / np.pi)
 
     fig, ax1 = plt.subplots(figsize=(10, 6))
-    
-    color = 'tab:blue'
-    ax1.set_xlabel('Frequency (Hz)', fontweight='bold')
-    ax1.set_ylabel('Magnitude (dB)', color=color, fontweight='bold')
-    ax1.semilogx(freq, mag, color=color, linewidth=2, label='Magnitude V(16)')
-    ax1.tick_params(axis='y', labelcolor=color)
+
+    color = "tab:blue"
+    ax1.set_xlabel("Frequency (Hz)", fontweight="bold")
+    ax1.set_ylabel("Magnitude (dB)", color=color, fontweight="bold")
+    ax1.semilogx(freq, mag, color=color, linewidth=2, label="Magnitude V(16)")
+    ax1.tick_params(axis="y", labelcolor=color)
     ax1.grid(True, which="both", ls="--", alpha=0.5)
-    
+
     # Mark the passband and cutoff
-    ax1.axhline(y=-1.56, color='gray', linestyle=':', alpha=0.8)
-    ax1.text(2e4, -1.0, "Passband Peak: -1.56 dB", color='gray')
-    ax1.axvline(x=451e3, color='tab:red', linestyle='--', alpha=0.6)
-    ax1.text(460e3, -40, "fc = 451.2 kHz", color='tab:red')
+    ax1.axhline(y=-1.56, color="gray", linestyle=":", alpha=0.8)
+    ax1.text(2e4, -1.0, "Passband Peak: -1.56 dB", color="gray")
+    ax1.axvline(x=451e3, color="tab:red", linestyle="--", alpha=0.6)
+    ax1.text(460e3, -40, "fc = 451.2 kHz", color="tab:red")
 
     ax2 = ax1.twinx()
-    color = 'tab:orange'
-    ax2.set_ylabel('Phase (Degrees)', color=color, fontweight='bold')
-    ax2.semilogx(freq, phase_deg, color=color, linewidth=1.5, linestyle='--', label='Phase V(16)')
-    ax2.tick_params(axis='y', labelcolor=color)
+    color = "tab:orange"
+    ax2.set_ylabel("Phase (Degrees)", color=color, fontweight="bold")
+    ax2.semilogx(
+        freq, phase_deg, color=color, linewidth=1.5, linestyle="--", label="Phase V(16)"
+    )
+    ax2.tick_params(axis="y", labelcolor=color)
     ax2.set_ylim([-200, 200])
-    
-    plt.title('OPA1612 4th-Order Sallen-Key Filter + Push-Pull Bode Plot', fontweight='bold', fontsize=14)
+
+    plt.title(
+        "OPA1612 4th-Order Sallen-Key Filter + Push-Pull Bode Plot",
+        fontweight="bold",
+        fontsize=14,
+    )
     fig.tight_layout()
     plt.savefig(f"{output_dir}/spice_bode_plot.png", dpi=300)
     print("Saved docs/spice_plots/spice_bode_plot.png")
@@ -56,12 +63,12 @@ try:
     # Let's read it flexibly
     with open("tran_results.txt", "r") as f:
         header = f.readline().split()
-        
+
     data_tran = np.loadtxt("tran_results.txt", skiprows=1)
-    
+
     # Check if we have decoupled time vectors (4 columns: t1, v16, t2, v1)
     if data_tran.shape[1] == 4:
-        t1 = data_tran[:, 0] * 1e6 # Convert to microseconds
+        t1 = data_tran[:, 0] * 1e6  # Convert to microseconds
         v16 = data_tran[:, 1]
         t2 = data_tran[:, 2] * 1e6
         v1 = data_tran[:, 3]
@@ -73,26 +80,34 @@ try:
         v1 = data_tran[:, 2]
 
     plt.figure(figsize=(10, 6))
-    
+
     # Plot raw DAC input
-    plt.plot(t2, v1, color='tab:red', linewidth=1.5, alpha=0.7, label='Raw DAC Input V(1)')
-    
+    plt.plot(
+        t2, v1, color="tab:red", linewidth=1.5, alpha=0.7, label="Raw DAC Input V(1)"
+    )
+
     # Plot filtered driver output
-    plt.plot(t1, v16, color='tab:blue', linewidth=2.5, label='Filtered Output V(16)')
-    
-    plt.xlabel('Time (\u03bcs)', fontweight='bold')
-    plt.ylabel('Voltage (V)', fontweight='bold')
-    plt.title('Transient Response: 250 kHz Pulse (Class-AB Restored)', fontweight='bold', fontsize=14)
-    
+    plt.plot(t1, v16, color="tab:blue", linewidth=2.5, label="Filtered Output V(16)")
+
+    plt.xlabel("Time (\u03bcs)", fontweight="bold")
+    plt.ylabel("Voltage (V)", fontweight="bold")
+    plt.title(
+        "Transient Response: 250 kHz Pulse (Class-AB Restored)",
+        fontweight="bold",
+        fontsize=14,
+    )
+
     # Annotate Vp-p restoration
-    plt.annotate('Restored $V_{p-p}$ = 1.53 V\n($I_Q$ = 44.2 mA)', 
-                 xy=(t1[np.argmax(v16)], np.max(v16)),
-                 xytext=(t1[np.argmax(v16)]+1.0, np.max(v16)+0.1),
-                 arrowprops=dict(facecolor='black', shrink=0.05, width=1.5, headwidth=6))
-                 
+    plt.annotate(
+        "Restored $V_{p-p}$ = 1.53 V\n($I_Q$ = 44.2 mA)",
+        xy=(t1[np.argmax(v16)], np.max(v16)),
+        xytext=(t1[np.argmax(v16)] + 1.0, np.max(v16) + 0.1),
+        arrowprops=dict(facecolor="black", shrink=0.05, width=1.5, headwidth=6),
+    )
+
     plt.xlim([0, 20])
-    plt.grid(True, linestyle='--', alpha=0.7)
-    plt.legend(loc='upper right')
+    plt.grid(True, linestyle="--", alpha=0.7)
+    plt.legend(loc="upper right")
     plt.tight_layout()
     plt.savefig(f"{output_dir}/spice_transient.png", dpi=300)
     print("Saved docs/spice_plots/spice_transient.png")
