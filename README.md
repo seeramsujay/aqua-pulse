@@ -1,4 +1,22 @@
-# 🌊 AQUAPULSE: Cognitive Software-Defined Sonar Payload & Ground Station
+<div align="center">
+
+<img src="assets/logo.svg" alt="AQUAPULSE Logo" width="160" />
+
+# AQUAPULSE
+### Adaptive Hydro-Acoustic Pulse Synthesis & Subsea Bathymetry Engine
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![React 18](https://img.shields.io/badge/Ground%20Station-React%2018%20%7C%20TypeScript-61DAFB.svg?logo=react&logoColor=black)](src/)
+[![Firmware: FreeRTOS](https://img.shields.io/badge/Firmware-FreeRTOS%20DMA%20Waveform-informational.svg)](firmware/)
+[![Edge AI: TinyML](https://img.shields.io/badge/Edge%20AI-TinyML%20Echo%20Perception-orange.svg)](#)
+
+<p align="center">
+  <b>A complete cyber-physical oceanographic bathymetry system featuring hardware DMA chirp synthesis, 4th-order Sallen-Key analog filtering, TinyML echo perception, and real-time React ground control.</b>
+</p>
+
+</div>
+
+---
 
 > **SIH26058 MoES/NIOT Mandate:** Cognitive, Low-Power, Software-Defined Sonar Payload & Cyber-Physical Ground Console for Autonomous Underwater Vehicles (AUVs / UUVs).
 
